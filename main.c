@@ -52,17 +52,20 @@
 
 #define ST25DV_ADDR_DATA      0x53
 
-volatile float currentTemperature = 0.0f;
-volatile uint16_t rawAdc = 0;
+volatile float temp_sensor1 = 0.0f;
+volatile float temp_sensor2 = 0.0f;
+volatile uint16_t rawAdc1 = 0;
+volatile uint16_t rawAdc2 = 0;
 
 static void SystemClock_Init(void);
 static void GPIO_Init(void);
 static void ADC_Init(void);
 static void I2C1_Init(void);
-static uint16_t ADC_Read(void);
+static uint16_t ADC_ReadChannel(uint32_t channel);
+static float CalculateTemperature(uint16_t adc_val);
 static void delay_cycles(volatile uint32_t count);
 static uint8_t I2C1_WriteData(uint16_t memAddr, const uint8_t *pData, uint16_t size);
-static void ST25DV_WriteCompactNDEF(float temp);
+static void ST25DV_WriteDualNDEF(float t1, float t2);
 
 int main(void)
 {
@@ -75,23 +78,17 @@ int main(void)
 
     while (1)
     {
-        // 1. أخذ قراءة الـ ADC
-        rawAdc = ADC_Read();
-        if (rawAdc == 0) rawAdc = 1;
+        // 1. قراءة الحساس الأول (PA0 -> Channel 0)
+        rawAdc1 = ADC_ReadChannel(0);
+        temp_sensor1 = CalculateTemperature(rawAdc1);
 
-        // 2. حساب درجة الحرارة
-        float resistance = SERIES_RESISTOR * ((4095.0f / (float)rawAdc) - 1.0f);
-        float steinhart = resistance / NOMINAL_RESISTANCE;
-        steinhart = logf(steinhart);
-        steinhart /= B_COEFFICIENT;
-        steinhart += 1.0f / (NOMINAL_TEMPERATURE + 273.15f);
-        steinhart = 1.0f / steinhart;
-        currentTemperature = steinhart - 273.15f;
+        // 2. قراءة الحساس الثاني (PA1 -> Channel 1)
+        rawAdc2 = ADC_ReadChannel(1);
+        temp_sensor2 = CalculateTemperature(rawAdc2);
 
-        // 3. كتابة القراءة في الـ NFC مع إعادة المحاولة التلقائية
-        ST25DV_WriteCompactNDEF(currentTemperature);
+        // 3. كتابة القراءتين معاً في الـ NFC
+        ST25DV_WriteDualNDEF(temp_sensor1, temp_sensor2);
 
-        // تأخير خفيف قبل التحديث التالي
         delay_cycles(80000);
     }
 }
@@ -104,10 +101,10 @@ static void delay_cycles(volatile uint32_t count)
 static void SystemClock_Init(void)
 {
     RCC_CR |= (1U << 0);
-    while (!(RCC_CR & (1U << 2))); // الانتظار الصحيح على MSIRDY (Bit 2)
+    while (!(RCC_CR & (1U << 2))); // الانتظار على MSIRDY (Bit 2)
 
     RCC_ICSCR &= ~(7U << 13);
-    RCC_ICSCR |=  (5U << 13);      // التردد 2.097 MHz
+    RCC_ICSCR |=  (5U << 13);      // 2.097 MHz
 
     RCC_CFGR &= ~3U;
     while ((RCC_CFGR & (3U << 2)) != 0);
@@ -117,8 +114,10 @@ static void GPIO_Init(void)
 {
     RCC_IOPENR |= (1U << 0);
 
-    GPIOA_MODER |= (3U << (0 * 2)); // PA0 Analog
+    // ضبط PA0 و PA1 كمدخلات تناظرية (Analog Mode: 11)
+    GPIOA_MODER |= (3U << (0 * 2)) | (3U << (1 * 2));
 
+    // PA9 (SCL) و PA10 (SDA) للـ I2C
     GPIOA_MODER &= ~((3U << (9 * 2)) | (3U << (10 * 2)));
     GPIOA_MODER |=  ((2U << (9 * 2)) | (2U << (10 * 2)));
 
@@ -145,19 +144,34 @@ static void ADC_Init(void)
     ADC1_CR |= (1U << 0);
     while (!(ADC1_ISR & (1U << 0)));
 
-    ADC1_CHSELR = (1U << 0);
     ADC1_SMPR |= 0x07;
 }
 
-static uint16_t ADC_Read(void)
+static uint16_t ADC_ReadChannel(uint32_t channel)
 {
     uint32_t timeout = 50000;
-    ADC1_CR |= (1U << 2);
+
+    // اختيار القناة المطلوبة
+    ADC1_CHSELR = (1U << channel);
+
+    ADC1_CR |= (1U << 2); // بدء التحويل
     while (!(ADC1_ISR & (1U << 2)))
     {
         if (--timeout == 0) return 2048;
     }
     return (uint16_t)ADC1_DR;
+}
+
+static float CalculateTemperature(uint16_t adc_val)
+{
+    if (adc_val == 0) adc_val = 1;
+    float resistance = SERIES_RESISTOR * ((4095.0f / (float)adc_val) - 1.0f);
+    float steinhart = resistance / NOMINAL_RESISTANCE;
+    steinhart = logf(steinhart);
+    steinhart /= B_COEFFICIENT;
+    steinhart += 1.0f / (NOMINAL_TEMPERATURE + 273.15f);
+    steinhart = 1.0f / steinhart;
+    return (steinhart - 273.15f);
 }
 
 static void I2C1_Init(void)
@@ -168,7 +182,6 @@ static void I2C1_Init(void)
     I2C1_CR1 |= (1U << 0);
 }
 
-/* دالة الكتابة مع معالجة حماية الـ RF Busy والـ NACK */
 static uint8_t I2C1_WriteData(uint16_t memAddr, const uint8_t *pData, uint16_t size)
 {
     uint32_t totalBytes = size + 2;
@@ -177,15 +190,15 @@ static uint8_t I2C1_WriteData(uint16_t memAddr, const uint8_t *pData, uint16_t s
 
     while (retries--)
     {
-        I2C1_ICR = (1U << 4) | (1U << 5); // مسح أعلام الأخطاء السابقة
+        I2C1_ICR = (1U << 4) | (1U << 5);
 
         I2C1_CR2 = ((uint32_t)(ST25DV_ADDR_DATA << 1)) | (totalBytes << 16) | (1U << 25);
-        I2C1_CR2 |= (1U << 13); // إرسال START
+        I2C1_CR2 |= (1U << 13);
 
         timeout = 30000;
         while (!(I2C1_ISR & (1U << 1)))
         {
-            if (I2C1_ISR & (1U << 4)) goto retry; // إذا أعطت الشريحة NACK بسبب انشغال الـ RF أعد المحاولة
+            if (I2C1_ISR & (1U << 4)) goto retry;
             if (--timeout == 0) goto retry;
         }
         I2C1_TXDR = (memAddr >> 8) & 0xFF;
@@ -213,35 +226,42 @@ static uint8_t I2C1_WriteData(uint16_t memAddr, const uint8_t *pData, uint16_t s
         while (!(I2C1_ISR & (1U << 5))) { if (--timeout == 0) break; }
         I2C1_ICR = (1U << 5);
 
-        delay_cycles(15000); // مهلة تثبيت الـ EEPROM داخلياً
-        return 0; // نجحت الكتابة
+        delay_cycles(15000);
+        return 0;
 
     retry:
-        I2C1_CR2 |= (1U << 14); // توليد STOP لتحرير الخط
+        I2C1_CR2 |= (1U << 14);
         delay_cycles(4000);
     }
 
     return 1;
 }
 
-static void ST25DV_WriteCompactNDEF(float temp)
+static void ST25DV_WriteDualNDEF(float t1, float t2)
 {
-    char textPayload[16];
-    int intPart = (int)temp;
-    int fracPart = (int)((temp - intPart) * 10);
-    if (fracPart < 0) fracPart = -fracPart;
+    char textPayload[64]; // تكبير الحجم لحل مشكلة format-truncation نهائياً
+    int int1 = (int)t1;
+    int frac1 = (int)((t1 - int1) * 10);
+    if (frac1 < 0) frac1 = -frac1;
 
-    snprintf(textPayload, sizeof(textPayload), "%d.%d C", intPart, fracPart);
+    int int2 = (int)t2;
+    int frac2 = (int)((t2 - int2) * 10);
+    if (frac2 < 0) frac2 = -frac2;
+
+    // كتابة النص المدمج بأمان
+    snprintf(textPayload, sizeof(textPayload), "T1:%d.%d T2:%d.%d C", int1, frac1, int2, frac2);
     uint8_t payloadLen = (uint8_t)strlen(textPayload);
 
-    uint8_t ndefBuffer[32];
+    uint8_t ndefBuffer[80];
     uint8_t idx = 0;
 
+    // CC File
     ndefBuffer[idx++] = 0xE1;
     ndefBuffer[idx++] = 0x40;
     ndefBuffer[idx++] = 0x08;
     ndefBuffer[idx++] = 0x01;
 
+    // NDEF Text Record
     ndefBuffer[idx++] = 0x03;
     ndefBuffer[idx++] = 7 + payloadLen;
     ndefBuffer[idx++] = 0xD1;
