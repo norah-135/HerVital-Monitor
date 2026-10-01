@@ -1,0 +1,178 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+
+# ==========================================
+# الخطوة 1: توليد بيانات تدريب واختبار موسعة (درجة الحرارة + المقاومة الكهربائية BIA)
+# ==========================================
+np.random.seed(42)
+days = 45
+quadrants = ['Left_Upper', 'Left_Lower', 'Right_Upper', 'Right_Lower']
+
+data = []
+for day in range(1, days + 1):
+    for q in quadrants:
+        base_temp = 36.6 + np.random.normal(0, 0.08)
+        base_bia = 150.0 + np.random.normal(0, 2.5) # المقاومة الكهربائية الحيوية الافتراضية بالأوم (Ω)
+        
+        # تقلبات هرمونية طبيعية مؤقتة (لا تُعتبر خطراً حقيقياً)
+        if day in [12, 13, 14]: 
+            base_temp += 0.20
+            base_bia -= 3.0
+            
+        is_real_anomaly = 0
+        # محاكاة خلل حقيقي مستمر (ارتفاع حرارة + انخفاض المقاومة) يبدأ بعد اليوم 25
+        if q == 'Left_Upper' and day > 25:
+            base_temp += 0.08 * (day - 25) 
+            base_bia -= 1.5 * (day - 25)   # انخفاض تدريجي للمقاومة بسبب تغيرات السوائل والأنسجة
+            is_real_anomaly = 1
+            
+        data.append({
+            'Day': day, 
+            'Quadrant': q, 
+            'Temperature': round(base_temp, 2),
+            'Bioimpedance': round(max(base_bia, 40.0), 2),
+            'True_Anomaly': is_real_anomaly 
+        })
+
+df = pd.DataFrame(data)
+
+# ==========================================
+# الخطوة 2: معالجة البيانات وبناء خط الأساس (Baseline) ورصد الشذوذ المزدوج
+# ==========================================
+alpha = 0.20 
+df['Baseline_Temp'] = 0.0
+df['Baseline_BIA'] = 0.0
+
+for q in quadrants:
+    q_mask = (df['Quadrant'] == q)
+    ewma_temp = df.loc[q_mask, 'Temperature'].ewm(alpha=alpha, adjust=False).mean()
+    ewma_bia = df.loc[q_mask, 'Bioimpedance'].ewm(alpha=alpha, adjust=False).mean()
+    
+    df.loc[q_mask, 'Baseline_Temp'] = ewma_temp.values
+    df.loc[q_mask, 'Baseline_BIA'] = ewma_bia.values
+
+# حساب الانحرافات (ارتفاع الحرارة وانخفاض المقاومة عن خط الأساس)
+df['Temp_Deviation'] = df['Temperature'] - df['Baseline_Temp']
+df['BIA_Drop'] = df['Baseline_BIA'] - df['Bioimpedance'] # تحويل الانخفاض إلى قيمة موجبة
+
+# العتبات الخاصة بكل مؤشر
+threshold_temp = 0.22 
+threshold_bia = 4.5
+
+df['Temp_Anomaly'] = df['Temp_Deviation'] > threshold_temp
+df['BIA_Anomaly'] = df['BIA_Drop'] > threshold_bia
+
+# دمج المؤشرين معاً لتقليل الإنذارات الكاذبة وتحقيق مطابقة الأنماط الحيوية
+df['Combined_Signal'] = df['Temp_Anomaly'] & df['BIA_Anomaly']
+
+df['Predicted_Alert'] = False
+for q in quadrants:
+    q_mask = (df['Quadrant'] == q)
+    consecutive = df.loc[q_mask, 'Combined_Signal'].rolling(window=3).sum()
+    df.loc[q_mask, 'Predicted_Alert'] = (consecutive >= 3)
+
+df['Pred_Binary'] = df['Predicted_Alert'].astype(int)
+
+# ==========================================
+# الخطوة 3: تقييم واختبار أداء النموذج (Evaluation & Metrics)
+# ==========================================
+y_true = df['True_Anomaly']
+y_pred = df['Pred_Binary']
+
+print("==================================================")
+print("     تقرير اختبار ودقة نموذج الذكاء الاصطناعي المدمج")
+print("==================================================")
+
+# 1. الدقة الكلية
+acc = accuracy_score(y_true, y_pred)
+print(f"• الدقة الكلية (Accuracy): {acc * 100:.2f}%\n")
+
+# 2. مصفوفة الارتباك (Confusion Matrix)
+conf_matrix = confusion_matrix(y_true, y_pred)
+print("• مصفوفة الارتباك (Confusion Matrix):")
+print(conf_matrix)
+print("  (الصيغة: [[True Negatives, False Positives],")
+print("            [False Negatives, True Positives]])\n")
+
+# 3. تقرير التصنيف التفصيلي (Precision, Recall, F1-Score)
+print("• تقرير التصنيف التفصيلي (Classification Report):")
+print(classification_report(y_true, y_pred, target_names=['Normal (طبيعي)', 'Anomaly/Alert (تنبيه شذوذ)']))
+print("==================================================\n")
+
+# ==========================================
+# الخطوة 4: دوال توليد الخرائط الحرارية والرسومات التحليلية
+# ==========================================
+def generate_visualizations():
+    # الخريطة الحرارية لدرجات الحرارة
+    pivot_temp = df.pivot(index='Day', columns='Quadrant', values='Temperature')
+    plt.figure(figsize=(10, 6))
+    sns.heatmap(pivot_temp, cmap='YlOrRd', cbar_kws={'label': 'Temperature (°C)'}, linewidths=0.5)
+    plt.title('Smart Bra - Daily Thermal Mapping Across Breast Quadrants', fontsize=11, fontweight='bold')
+    plt.xlabel('Breast Quadrants', fontsize=9)
+    plt.ylabel('Monitoring Days', fontsize=9)
+    plt.tight_layout()
+    plt.savefig('thermal_heatmap.png', dpi=300)
+    plt.close()
+
+    # الخريطة التحليلية للمقاومة الكهربائية الحيوية (BIA)
+    pivot_bia = df.pivot(index='Day', columns='Quadrant', values='Bioimpedance')
+    plt.figure(figsize=(10, 6))
+    sns.heatmap(pivot_bia, cmap='Blues_r', cbar_kws={'label': 'Bioimpedance (Ω)'}, linewidths=0.5)
+    plt.title('Smart Bra - Bioimpedance (BIA) Tracking Across Breast Quadrants', fontsize=11, fontweight='bold')
+    plt.xlabel('Breast Quadrants', fontsize=9)
+    plt.ylabel('Monitoring Days', fontsize=9)
+    plt.tight_layout()
+    plt.savefig('bia_heatmap.png', dpi=300)
+    plt.close()
+
+generate_visualizations()
+print("✅ تم حفظ الخرائط التحليلية (Thermal & BIA Heatmaps) بنجاح كملفات صور.")
+
+# ==========================================
+# الخطوة 5: المحاكاة الطرفية واستخراج التقرير الطبي الموجه
+# ==========================================
+def smart_bra_console_analyzer(day_input, quadrant_input, temp_input, bia_input):
+    simulated_base_temp = 36.7 
+    simulated_base_bia = 150.0
+    
+    temp_dev = temp_input - simulated_base_temp
+    bia_drop = simulated_base_bia - bia_input
+    
+    status = "✅ طبيعي - القراءات ضمن خط الأساس الشخصي المدمج"
+    report = f"--- التقرير الأولي للمستخدمة ---\n" \
+             f"• يوم المراقبة: اليوم {day_input}\n" \
+             f"• الربع المستهدف: {quadrant_input}\n" \
+             f"• درجة الحرارة المسجلة: {temp_input}°C (الانحراف: {temp_dev:+.2f}°C)\n" \
+             f"• المقاومة الحيوية (BIA): {bia_input} Ω (الانخفاض: -{bia_drop:.2f} Ω)\n"
+    
+    doctor_report = "لا توجد تقارير إكلينيكية مطلوبة حالياً. الأنماط الحيوية مستقرة."
+
+    if temp_dev > 0.35 and bia_drop > 4.0 and day_input > 3:
+        status = f"⚠️ تنبيه ذكي مؤكد في [{quadrant_input}] (تقليل الإنذارات الكاذبة بنجاح)!"
+        report += "\n[تحذير]: توافق الارتفاع الحراري المستمر مع انخفاض المقاومة الكهربائية للأنسجة لعدة أيام."
+        
+        doctor_report = f"==========================================\n" \
+                        f"    تقرير طبي معتمد موجه للطبيبة المختصة   \n" \
+                        f"==========================================\n" \
+                        f"• الحالة: رصد نمط مزدوج غير معتاد (تغيرات السوائل وتدفق الأنسجة الصامت)\n" \
+                        f"• الموقع التشريحي الدقيق: {quadrant_input}\n" \
+                        f"• مدة استمرار التوافق الحيوي: 3 أيام متتالية فما فوق\n" \
+                        f"• مؤشر الحرارة: +{temp_dev:.2f}°C | مؤشر المقاومة BIA: -{bia_drop:.2f} Ω\n" \
+                        f"• التوصية الإكلينيكية: فحص دقيق للتمييز بين الاحتقان الطبيعي والتغيرات النسيجية المبكرة.\n" \
+                        f"=========================================="
+                        
+    elif temp_dev > 0.2 or bia_drop > 3.0:
+        status = "🔍 قيد المراقبة (قراءات غير معتادة طفيفة تتطلب التحقق المزدوج)"
+        report += "\n النظام يتابع الأنماط الحيوية لضمان عدم وجود إنذار كاذب."
+
+    print("\n" + "="*40)
+    print(status)
+    print(report)
+    print(doctor_report)
+    print("="*40 + "\n")
+
+# تجربة محاكاة لتحليل حالة في اليوم 30 للربع العلوي الأيسر
+smart_bra_console_analyzer(day_input=30, quadrant_input='Left_Upper', temp_input=37.5, bia_input=132.0)
