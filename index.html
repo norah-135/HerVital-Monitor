@@ -65,7 +65,7 @@ body{
 /* Mini Compact Calendar Timeline */
 .timeline-card{
   background:#fff;border:1px solid var(--line);border-radius:16px;
-  padding:14px 18px;margin-bottom:18px;
+  padding:14px 18px;margin-bottom:14px;
 }
 .timeline-head{
   display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:12px;font-weight:700;color:var(--ink)
@@ -80,6 +80,22 @@ body{
 }
 .mini-day.done{background:var(--green-soft);border-color:#a7f3d0;color:var(--green);font-weight:700}
 .mini-day.current{border-color:var(--rose);background:var(--rose-soft);color:var(--rose);font-weight:800}
+
+/* Result / Reassurance Message Banner */
+.status-message-box{
+  background:var(--green-soft);border:1px solid #a7f3d0;border-radius:16px;
+  padding:16px 20px;margin-bottom:18px;display:flex;align-items:center;gap:14px;
+  transition:all .3s ease;
+}
+.status-message-box.alert-mode{
+  background:var(--red-soft);border-color:#fca5v5;color:#991b1b;
+}
+.status-msg-icon{
+  width:40px;height:40px;border-radius:12px;background:#fff;
+  display:grid;place-items:center;font-size:18px;flex-shrink:0;
+}
+.status-msg-text h4{font-size:13px;color:var(--ink);margin-bottom:3px;font-weight:800}
+.status-msg-text p{font-size:11px;color:var(--muted);line-height:1.5}
 
 /* Cards Grid */
 .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
@@ -165,7 +181,7 @@ body{
 <body>
 
 <div class="app">
-  <!-- Topbar -->
+  <!-- Topbar (تم إزالة شاشة الباك إند بناءً على الطلب) -->
   <header class="topbar">
     <div class="brand">
       <img src="/Logo.png" alt="FemSense Logo">
@@ -175,7 +191,6 @@ body{
       </div>
     </div>
     <div style="display:flex; align-items:center; gap:10px;">
-      <a href="/backend" target="_blank" style="text-decoration:none; font-size:11px; color:var(--rose); font-weight:700; background:var(--rose-soft); padding:6px 12px; border-radius:8px;">⚙️ شاشة الباك إند</a>
       <div class="sync-badge" id="syncPill"><span class="dot"></span><span id="syncText">في انتظار مسحة NFC</span></div>
     </div>
   </header>
@@ -189,6 +204,15 @@ body{
         <button class="btn" style="padding:4px 10px; font-size:10px;" onclick="triggerSync()">محاكاة مسحة NFC</button>
       </div>
       <div class="mini-track" id="calendarTrack"></div>
+    </div>
+
+    <!-- Status & Reassurance Message Box (مضاف حديثاً تحت التتبع الزمني) -->
+    <div class="status-message-box" id="statusMessageBox">
+      <div class="status-msg-icon" id="statusMsgIcon">🌸</div>
+      <div class="status-msg-text">
+        <h4 id="statusMsgTitle">الحالة مستقرة تماماً ولله الحمد</h4>
+        <p id="statusMsgDesc">نتائج القياسات الحالية تقع ضمن خط الأساس الطبيعي. استمري في الاطمئنان، ولا توجد مؤشرات تدعو للقلق.</p>
+      </div>
     </div>
 
     <!-- 4 Main Telemetry Cards -->
@@ -260,21 +284,21 @@ body{
       </div>
     </div>
 
-    <!-- Enhanced Recommendations -->
+    <!-- Enhanced Recommendations (محدث للتأكيد على أخذ القراءات في الأيام المحددة لتتبع التغيرات) -->
     <div class="recommendations-box">
       <div class="rec-title">💡 التوجيهات والقرارات السريرية الذكية (Clinical Decision Support)</div>
       <div class="rec-list">
         <div class="rec-item">
-          <b>🎯 توقيت المسح اليومي</b>
-          <p>يُفضل تثبيت موعد المسح بالـ NFC صباحاً بعد الاستيقاظ مباشرة لتفادي التأثيرات الناتجة عن المجهود البدني.</p>
+          <b>🎯 أهمية الانتظام في الأيام المطلوبة</b>
+          <p>يُعد الالتزام بأخذ القراءات في الأيام المحددة أمراً أساسياً؛ لكي ينجح النموذج في بناء وتحديث خط الأساس الفردي وتتبع أي تغيرات بدقة مع مرور الوقت[span_3](start_span)[span_3](end_span).</p>
         </div>
         <div class="rec-item" id="recAlertCard">
-          <b id="recAlertTitle">📊 حالة التباين الفسيولوجي</b>
-          <p id="recAlertText">الفروقات الحرارية والممانعة ضمن الحدود الطبيعية المستقرة ولا تتطلب تدخلاً سريرياً.</p>
+          <b id="recAlertTitle">📊 التوجيه الميداني للنتيجة</b>
+          <p id="recAlertText">المؤشرات الفسيولوجية مستقرة تماماً، ويُنصح بالاستمرار في تسجيل القراءات اليومية بحسب الجدول الزمني.</p>
         </div>
         <div class="rec-item">
-          <b>🩺 بروتوكول المتابعة الطبية</b>
-          <p>عند تسجيل تباين حراري (&gt; 1.5°C) مستمر لمدة 3 أيام، يُنشئ النظام ملف إحالة إلكتروني مباشرة للطبيبة المختصة.</p>
+          <b>🩺 بروتوكول الإحالة الطبية المباشرة</b>
+          <p>عند تسجيل تباين حراري مستمر لأكثر من 3 أيام متتالية، يقوم النظام آلياً بتجهيز التقرير وإدراجه لملف إحالة الطبيبة المختصة[span_4](start_span)[span_4](end_span).</p>
         </div>
       </div>
     </div>
@@ -338,7 +362,7 @@ body{
       </div>
 
       <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
-        <button class="btn outline" onclick="window.print()">🖨️ طباعة التقرير</button>
+        <button class="btn outline" onclick="window.print()">🖨️️ طباعة التقرير</button>
         <button class="btn" onclick="alert('تم حفظ وتصدير ملف التقرير الطبي بنجاح')">📄 تصدير بصيغة PDF</button>
       </div>
     </div>
@@ -406,15 +430,26 @@ setInterval(() => {
       const recTitle = document.getElementById('recAlertTitle');
       const recText = document.getElementById('recAlertText');
       const summaryBox = document.getElementById('reportSummaryBox');
+      
+      const msgBox = document.getElementById('statusMessageBox');
+      const msgIcon = document.getElementById('statusMsgIcon');
+      const msgTitle = document.getElementById('statusMsgTitle');
+      const msgDesc = document.getElementById('statusMsgDesc');
 
       if(t1 > 35.0){
         targetCell.classList.add('active-heat');
         noteT1.className = 'metric-note alert';
         noteT1.innerText = 'ارتفاع ملحوظ فوق خط الأساس';
         
-        recTitle.innerText = '⚠️️ رصد تباين حراري غير متماثل';
+        // تحديث رسالة الحالة والاطمئنان (وضع تنبيه / خطر)
+        msgBox.className = 'status-message-box alert-mode';
+        msgIcon.innerText = '⚠️';
+        msgTitle.innerText = 'تنبيه: رصد تباين فسيولوجي غير معتاد';
+        msgDesc.innerText = 'تم رصد ارتفاع حراري بمقدار +' + dev + '°C عن المرجع. يُرجى الالتزام بمتابعة الأيام القادمة بدقة ومشاركة التقرير عند الاستمرار.';
+
+        recTitle.innerText = '⚠ رصد تباين حراري غير متماثل';
         recTitle.style.color = '#ef4444';
-        recText.innerText = 'تم رصد فارق حراري بمقدار +' + dev + '°C مع انخفاض طفيف في الممانعة الحيوية، يُنصح بتكرار المسح بعد 4 ساعات.';
+        recText.innerText = 'تم رصد فارق حراري بمقدار +' + dev + '°C مع انخفاض طفيف في الممانعة الحيوية، يُنصح بتكرار المسح بعد 4 ساعات والانتظام بالموعد المحدد.';
 
         document.getElementById('repStatus1').innerText = 'ارتفاع حراري دافئ';
         document.getElementById('repStatus1').style.color = '#ef4444';
@@ -430,9 +465,15 @@ setInterval(() => {
         noteT1.className = 'metric-note';
         noteT1.innerText = 'ضمن النطاق المعتدل';
 
+        // تحديث رسالة الحالة والاطمئنان (وضع طبيعي ومستقر)
+        msgBox.className = 'status-message-box';
+        msgIcon.innerText = '🌸';
+        msgTitle.innerText = 'الحالة مستقرة تماماً ولله الحمد';
+        msgDesc.innerText = 'نتائج القياسات الحالية تقع ضمن خط الأساس الطبيعي. استمري في أخذ القراءات في الأيام المحددة لتتبع دقيق ومستمر.';
+
         recTitle.innerText = '✅ توازن حراري وممانعة مستقرة';
         recTitle.style.color = '#10b981';
-        recText.innerText = 'جميع المؤشرات المقاسة متطابقة مع النطاق الفسيولوجي المرجعي لدرجة حرارة الغرفة.';
+        recText.innerText = 'جميع المؤشرات متطابقة مع النطاق الفسيولوجي المرجعي. واصلي الالتزام بجدول الفحص المستمر للحفاظ على دقة التعرف على الأنماط.';
 
         document.getElementById('repStatus1').innerText = 'معياري ومستقر';
         document.getElementById('repStatus1').style.color = '#10b981';
