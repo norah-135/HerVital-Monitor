@@ -1,0 +1,891 @@
+from flask import Flask, request, jsonify, render_template_string
+
+app = Flask(__name__)
+
+# عداد تتبع لمسات الـ NFC
+tap_count = 0
+
+latest_data = {
+    "t1": "--",
+    "t2": "--",
+    "status": "في انتظار أول مزامنة NFC...",
+    "synced": False,
+    "deviation": 0.0,
+    "bioimpedance": "412",
+    "symmetry": "94%",
+    "history": [43, 46, 45, 54, 69, 75, 82],  # نسب الأيام السبعة
+    "recorded_days": [1, 3, 5, 7, 10, 12, 14] # الأيام التي تم أخذ قراءة فيها كمثال افتراضي
+}
+
+FEM_SENSE_HTML = """
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FemSense | افحصي اليوم.. اطمئني غداً</title>
+<style>
+:root{
+  --rose:#d94f7d;
+  --rose-dark:#b93663;
+  --rose-soft:#fff0f5;
+  --rose-softer:#fff8fb;
+  --ink:#172033;
+  --muted:#778196;
+  --line:#e9edf3;
+  --surface:#ffffff;
+  --bg:#f6f7fb;
+  --green:#26966f;
+  --green-soft:#e9f8f1;
+  --amber:#c78325;
+  --amber-soft:#fff5e5;
+  --red:#c84d5f;
+  --red-soft:#fff0f1;
+  --blue:#5575c9;
+  --shadow:0 18px 50px rgba(25,32,51,.09);
+  --radius:22px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  min-height:100vh;
+  background:radial-gradient(circle at 10% 0%,#fff 0 22%,transparent 45%),var(--bg);
+  color:var(--ink);
+  font-family:Tahoma,"Segoe UI",Arial,sans-serif;
+  padding:22px;
+}
+button,input{font:inherit}
+button{cursor:pointer}
+.app{
+  width:min(1180px,100%);
+  margin:auto;
+  min-height:calc(100vh - 44px);
+  background:var(--surface);
+  border:1px solid #edf0f5;
+  border-radius:30px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+.topbar{
+  min-height:76px;
+  padding:16px 28px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  border-bottom:1px solid var(--line);
+  background:rgba(255,255,255,.92);
+  backdrop-filter:blur(12px);
+}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{
+  width:42px;height:42px;border-radius:14px;
+  display:grid;place-items:center;
+  background:linear-gradient(145deg,var(--rose),#ef7fa4);
+  color:#fff;font-weight:900;font-size:21px;
+  box-shadow:0 9px 22px rgba(217,79,125,.24);
+}
+.brand h1{font-size:20px;letter-spacing:.2px}
+.brand p{font-size:11px;color:var(--muted);margin-top:3px}
+.top-actions{display:flex;align-items:center;gap:9px}
+.icon-btn{
+  width:40px;height:40px;border:1px solid var(--line);background:#fff;
+  border-radius:12px;color:var(--muted)
+}
+.profile{
+  display:flex;align-items:center;gap:9px;
+  padding:7px 11px;border:1px solid var(--line);border-radius:14px;
+  font-size:12px;color:var(--ink);background:#fff
+}
+.avatar{width:28px;height:28px;border-radius:10px;background:var(--rose-soft);display:grid;place-items:center;color:var(--rose);font-weight:800}
+
+.layout{display:grid;grid-template-columns:215px 1fr;min-height:760px}
+.sidebar{
+  background:#fcfcfe;border-left:1px solid var(--line);
+  padding:22px 14px;display:flex;flex-direction:column;gap:8px
+}
+.side-label{font-size:10px;color:#a0a7b6;font-weight:800;padding:8px 12px 5px}
+.nav-btn{
+  border:0;background:transparent;color:#687287;
+  width:100%;padding:12px;border-radius:13px;
+  display:flex;align-items:center;gap:10px;text-align:right;font-size:13px
+}
+.nav-btn:hover{background:#f7f8fb}
+.nav-btn.active{background:var(--rose-soft);color:var(--rose);font-weight:800}
+.nav-icon{width:25px;text-align:center;font-size:16px}
+.side-note{
+  margin-top:auto;padding:14px;border:1px solid #f1dce4;border-radius:17px;
+  background:linear-gradient(145deg,#fff8fb,#fff);
+}
+.side-note strong{font-size:12px;display:block;margin-bottom:5px}
+.side-note p{font-size:10px;color:var(--muted);line-height:1.7}
+.content{padding:28px;overflow:hidden}
+.screen{display:none}
+.screen.active{display:block;animation:enter .32s ease}
+@keyframes enter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.hero{
+  display:flex;justify-content:space-between;align-items:flex-start;gap:20px;
+  margin-bottom:22px
+}
+.eyebrow{
+  color:var(--rose);font-size:11px;font-weight:900;
+  letter-spacing:.4px;margin-bottom:7px
+}
+.hero h2{font-size:27px;line-height:1.35;margin-bottom:7px}
+.hero p{color:var(--muted);font-size:12px;line-height:1.8;max-width:620px}
+.sync-pill{
+  display:flex;align-items:center;gap:7px;padding:9px 12px;border-radius:99px;
+  background:var(--green-soft);color:var(--green);font-size:11px;font-weight:800;
+  white-space:nowrap
+}
+.sync-pill.pending{
+  background:var(--amber-soft);color:var(--amber);
+}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 0 5px rgba(38,150,111,.09)}
+
+/* Success Banner */
+.success-banner{
+  background: linear-gradient(135deg, var(--green-soft), #d1fae5);
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+  padding: 14px 18px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  box-shadow: 0 4px 15px rgba(38,150,111,0.08);
+  animation: fadeIn 0.4s ease;
+}
+.success-banner div b { font-size: 13px; display: block; margin-bottom: 2px; }
+.success-banner div p { font-size: 11px; color: #047857; }
+@keyframes fadeIn { from{opacity:0; transform:translateY(-5px);} to{opacity:1; transform:none;} }
+
+/* Section styling inside Dashboard */
+.dashboard-section {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 20px;
+  margin-bottom: 18px;
+  box-shadow: 0 4px 20px rgba(25,32,51,.02);
+}
+.dashboard-section-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--ink);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 30-Day Timeline Styling */
+.timeline-30-container {
+  overflow-x: auto;
+  padding: 8px 0 14px 0;
+}
+.timeline-30-track {
+  display: flex;
+  gap: 10px;
+  min-width: max-content;
+  align-items: center;
+}
+.day-node {
+  width: 44px;
+  height: 60px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #fafbfc;
+  font-size: 10px;
+  color: var(--muted);
+  gap: 4px;
+  transition: all 0.2s;
+}
+.day-node span { font-weight: 700; color: var(--ink); font-size: 11px; }
+.day-node.completed {
+  background: var(--green-soft);
+  border-color: #a7f3d0;
+  color: var(--green);
+}
+.day-node.completed span {
+  color: var(--green);
+}
+.day-node.today {
+  border-color: var(--rose);
+  background: var(--rose-soft);
+}
+.day-node.today span {
+  color: var(--rose);
+}
+
+.grid{display:grid;gap:14px}
+.grid-4{grid-template-columns:repeat(4,1fr)}
+.grid-2{grid-template-columns:repeat(2,1fr)}
+.card{
+  background:#fff;border:1px solid var(--line);border-radius:19px;
+  padding:17px;box-shadow:0 7px 25px rgba(25,32,51,.035)
+}
+.card-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.card-title h3{font-size:13px}
+.card-title span{font-size:10px;color:var(--muted)}
+.metric{position:relative;overflow:hidden}
+.metric:after{
+  content:"";position:absolute;width:70px;height:70px;border-radius:50%;
+  background:var(--rose-soft);left:-25px;bottom:-25px
+}
+.metric-label{font-size:10px;color:var(--muted);margin-bottom:8px}
+.metric-value{font-size:22px;font-weight:900}
+.metric-value small{font-size:11px;font-weight:700;color:var(--muted)}
+.metric-sub{font-size:10px;color:var(--green);margin-top:5px}
+.metric-sub.amber{color:var(--amber)}
+.metric-sub.red{color:var(--red)}
+
+.alert{
+  padding:15px 17px;border-radius:18px;display:flex;align-items:center;justify-content:space-between;gap:15px;
+  margin-bottom:14px;border:1px solid;
+  transition: all .3s ease;
+}
+.alert.warning{background:var(--amber-soft);border-color:#f3dfbb}
+.alert.danger{background:var(--red-soft);border-color:#f8b4bc}
+.alert.good{background:var(--green-soft);border-color:#ccecdf}
+.alert-main{display:flex;align-items:center;gap:12px}
+.alert-icon{width:40px;height:40px;border-radius:13px;display:grid;place-items:center;background:#fff;font-size:18px}
+.alert h3{font-size:13px;margin-bottom:4px}
+.alert p{font-size:10px;color:var(--muted);line-height:1.6}
+.status-tag{padding:6px 9px;border-radius:9px;background:#fff;font-size:10px;font-weight:800;color:var(--amber);white-space:nowrap}
+
+.breast-wrap{
+  min-height:285px;border-radius:16px;background:
+  radial-gradient(circle at 50% 35%,rgba(217,79,125,.07),transparent 48%),#fbfcfe;
+  border:1px solid #eef1f5;position:relative;display:grid;place-items:center;overflow:hidden
+}
+.chest{
+  width:290px;height:190px;position:relative;display:flex;gap:7px;align-items:center;justify-content:center
+}
+.breast{
+  width:122px;height:142px;position:relative;
+  background:radial-gradient(circle at 45% 42%,#ffd5e0 0 13%,#f7b3c5 34%,#f39ab5 64%,#ee8aa9 100%);
+  border-radius:54% 46% 51% 49% / 48% 48% 52% 52%;
+  box-shadow:inset 0 0 24px rgba(255,255,255,.35),0 8px 20px rgba(217,79,125,.12)
+}
+.breast.left{transform:rotate(8deg)}
+.breast.right{transform:rotate(-8deg)}
+.nipple{position:absolute;width:18px;height:18px;border-radius:50%;background:#d87491;left:50%;top:52%;transform:translate(-50%,-50%);box-shadow:0 0 0 8px rgba(255,255,255,.13)}
+.quadrant{
+  position:absolute;width:34px;height:34px;border-radius:50%;
+  background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.45);
+}
+.q1{top:18px;right:15px}.q2{top:18px;left:15px}.q3{bottom:18px;right:15px}.q4{bottom:18px;left:15px}
+.hotspot{
+  position:absolute;width:29px;height:29px;border-radius:50%;
+  background:rgba(194,66,93,.78);right:20px;top:29px;
+  box-shadow:0 0 0 8px rgba(194,66,93,.10),0 0 18px rgba(194,66,93,.35);
+  animation:pulse 2.2s infinite;
+  display:none;
+}
+@keyframes pulse{50%{transform:scale(1.08);opacity:.78}}
+.map-legend{
+  position:absolute;bottom:10px;right:12px;left:12px;display:flex;justify-content:space-between;
+  color:var(--muted);font-size:9px
+}
+.legend-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:4px;background:#ef8ba7}
+.legend-dot.gray{background:#d8dee8}
+
+.bars{height:155px;display:flex;align-items:flex-end;gap:9px;padding:12px 3px 3px;border-bottom:1px solid var(--line)}
+.bar-col{flex:1;height:100%;display:flex;align-items:flex-end;position:relative}
+.bar{
+  width:100%;border-radius:7px 7px 2px 2px;
+  background:linear-gradient(180deg,#ed8baa,#f8d1dc);min-height:18px;
+  transition: height .5s ease;
+}
+.bar.hot{background:linear-gradient(180deg,var(--rose),#ef9ab5)}
+.days{display:flex;gap:9px;padding:7px 3px 0;color:#9aa2b1;font-size:9px}
+.days span{flex:1;text-align:center}
+
+.progress{
+  height:7px;background:#f0f2f6;border-radius:99px;overflow:hidden;margin-top:9px
+}
+.progress i{display:block;height:100%;width:78%;background:linear-gradient(90deg,#e66f98,var(--rose));border-radius:99px}
+.small-row{display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--muted)}
+.small-row strong{color:var(--ink)}
+
+.sensor-row{display:flex;gap:9px}
+.sensor{
+  flex:1;padding:12px;border-radius:14px;background:#fafbfc;border:1px solid #eef0f4
+}
+.sensor-icon{font-size:17px;margin-bottom:7px}
+.sensor h4{font-size:11px;margin-bottom:4px}
+.sensor p{font-size:9px;color:var(--muted);line-height:1.5}
+.sensor strong{font-size:16px;display:block;margin-top:6px}
+
+.timeline{display:flex;flex-direction:column;gap:12px}
+.event{display:grid;grid-template-columns:45px 1fr auto;gap:10px;align-items:center}
+.event-date{font-size:9px;color:var(--muted);text-align:center}
+.event-icon{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:var(--rose-soft);color:var(--rose)}
+.event h4{font-size:11px;margin-bottom:3px}.event p{font-size:9px;color:var(--muted)}
+.event-tag{font-size:9px;padding:5px 7px;border-radius:8px;background:var(--green-soft);color:var(--green)}
+
+.btn{
+  border:0;border-radius:13px;padding:12px 16px;background:linear-gradient(135deg,var(--rose),#e66b96);
+  color:#fff;font-weight:800;font-size:12px;box-shadow:0 8px 20px rgba(217,79,125,.18)
+}
+.btn:hover{background:linear-gradient(135deg,var(--rose-dark),var(--rose))}
+.btn.secondary{background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:none}
+.btn.ghost{background:var(--rose-soft);color:var(--rose);box-shadow:none}
+.btn.full{width:100%}
+.actions{display:flex;gap:9px;flex-wrap:wrap}
+
+.login{max-width:480px;margin:40px auto 0}
+.login-logo{width:min(260px,72vw);height:auto;display:block;margin:0 auto 10px;object-fit:contain}
+.login .brand-big{margin-bottom:25px;text-align:center}
+.login h2.slogan{font-size:29px;color:#d92f70;line-height:1.35;margin:4px 0 8px;font-weight:900}
+.login .tagline{color:#d92f70;font-size:14px;line-height:1.8;margin:2px 0;font-weight:700}
+.login .subtagline{color:#d92f70;font-size:14px;line-height:1.8;margin:0 0 18px;font-weight:600}
+.login .form{background:#fff;border:1px solid var(--line);border-radius:22px;padding:20px;box-shadow:0 12px 35px rgba(25,32,51,.055)}
+.field{margin-bottom:14px}.field label{display:block;font-size:11px;font-weight:800;margin-bottom:7px}
+.field input{width:100%;border:1px solid var(--line);border-radius:13px;padding:13px;background:#fff;outline:none;font-size:12px}
+.field input:focus{border-color:#e58ba7;box-shadow:0 0 0 4px var(--rose-soft)}
+.login-note{text-align:center;color:var(--muted);font-size:9px;line-height:1.7;margin-top:11px}
+
+body.login-mode .topbar, body.login-mode .sidebar{display:none}
+body.login-mode .layout{display:block;min-height:calc(100vh - 44px)}
+body.login-mode .content{
+  min-height:calc(100vh - 44px);
+  display:grid;
+  place-items:center;
+  padding:35px 20px;
+  background:radial-gradient(circle at 50% 10%,rgba(217,79,125,.07),transparent 34%),linear-gradient(180deg,#fff,#fff9fb);
+}
+body.login-mode .login{margin:0 auto;width:min(500px,100%)}
+
+.sync-screen{max-width:650px;margin:45px auto;text-align:center}
+.nfc-orbit{
+  width:155px;height:155px;margin:0 auto 25px;border-radius:50%;display:grid;place-items:center;
+  background:radial-gradient(circle,#fff 0 36%,var(--rose-soft) 37% 60%,#fce1eb 61% 100%);
+  position:relative
+}
+.nfc-orbit:before,.nfc-orbit:after{content:"";position:absolute;border:1px solid #efb3c7;border-radius:50%;animation:orbit 2.3s infinite ease-out}
+.nfc-orbit:before{inset:15px}.nfc-orbit:after{inset:-4px;animation-delay:.5s}
+@keyframes orbit{0%{opacity:.8;transform:scale(.88)}100%{opacity:0;transform:scale(1.15)}}
+.phone{font-size:43px;z-index:2}
+.sync-screen h2{font-size:25px;margin-bottom:8px}.sync-screen>p{font-size:12px;color:var(--muted);line-height:1.9;max-width:540px;margin:auto}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:25px 0}
+.step{padding:14px;border:1px solid var(--line);border-radius:15px;background:#fff;text-align:right}
+.step b{display:grid;place-items:center;width:26px;height:26px;border-radius:9px;background:var(--rose-soft);color:var(--rose);font-size:11px;margin-bottom:8px}
+.step h4{font-size:10px;margin-bottom:4px}.step p{font-size:9px;color:var(--muted);line-height:1.5}
+
+.live-badge{
+  display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:99px;
+  background:#eff6ff;color:#2563eb;font-size:10px;font-weight:700;margin-top:15px
+}
+
+.disclaimer{
+  margin-top:17px;padding:12px 14px;border-radius:14px;background:#fafbfc;border:1px solid var(--line);
+  color:#81899a;font-size:9px;line-height:1.8
+}
+
+.modal-backdrop{
+  position:fixed;inset:0;background:rgba(16,22,36,.45);backdrop-filter:blur(5px);
+  display:none;align-items:center;justify-content:center;padding:20px;z-index:20
+}
+.modal-backdrop.show{display:flex}
+.modal{width:min(520px,100%);background:#fff;border-radius:24px;padding:22px;box-shadow:0 25px 70px rgba(0,0,0,.22)}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.modal-head h3{font-size:17px}.close{border:0;background:#f5f6f8;width:34px;height:34px;border-radius:10px}
+.booking-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.option{border:1px solid var(--line);border-radius:13px;padding:12px;background:#fff;text-align:right}
+.option.selected{border-color:#e7a0b7;background:var(--rose-softer)}
+.option b{font-size:11px;display:block;margin-bottom:3px}.option span{font-size:9px;color:var(--muted)}
+.modal-actions{display:flex;gap:8px;margin-top:16px}.modal-actions .btn{flex:1}
+
+.toast{
+  position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);
+  opacity:0;background:#172033;color:#fff;padding:11px 15px;border-radius:12px;font-size:11px;
+  transition:.25s;z-index:30;pointer-events:none
+}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media(max-width:850px){
+  body{padding:0}.app{border-radius:0;min-height:100vh}.layout{grid-template-columns:1fr}
+  .sidebar{display:none}.content{padding:19px}.topbar{padding:13px 17px}
+  .grid-4{grid-template-columns:repeat(2,1fr)}.hero{flex-direction:column}
+}
+@media(max-width:560px){
+  .top-actions .profile{display:none}.grid-2,.grid-4{grid-template-columns:1fr}
+  .content{padding:15px}.steps{grid-template-columns:1fr}
+}
+</style>
+</head>
+
+<body class="login-mode">
+<div class="app" id="appShell">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">F</div>
+      <div><h1>FemSense</h1><p>مراقبة مستمرة لصحة الثدي ذاتية الطاقة</p></div>
+    </div>
+    <div class="top-actions">
+      <button class="icon-btn" onclick="toast('الإشعارات محدثة')">🔔</button>
+      <div class="profile"><span class="avatar">ف</span><span>فاطمة</span>⌄</div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="side-label">مساحتي الصحية</div>
+      <button class="nav-btn active" data-target="dashboard" onclick="show('dashboard',this)"><span class="nav-icon">⌂</span>لوحة المتابعة</button>
+      <button class="nav-btn" data-target="sync" onclick="show('sync',this)"><span class="nav-icon">⌁</span>مزامنة NFC</button>
+      <button class="nav-btn" onclick="openBooking()"><span class="nav-icon">◫</span>موعد الطبيبة</button>
+      <button class="nav-btn" onclick="exportReport()"><span class="nav-icon">↧</span>التقرير الصحي</button>
+      <div class="side-note">
+        <strong>خصوصيتك أولاً</strong>
+        <p>البيانات المعروضة هنا مستقاة مباشرة عبر تقنية NFC منخفضة الطاقة.</p>
+      </div>
+    </aside>
+
+    <main class="content">
+      <!-- 1. LOGIN SCREEN -->
+      <section id="login" class="screen active">
+        <div class="login">
+          <div class="brand-big">
+            <h2 class="slogan">افحصي اليوم.. اطمئني غداً</h2>
+            <p class="tagline">الاكتشاف المبكر يصنع الفرق</p>
+            <p class="subtagline">راقبي صحتك يوماً بيوم عبر الـ NFC</p>
+          </div>
+          <div class="form">
+            <div class="field">
+              <label>البريد الإلكتروني</label>
+              <input value="fatima@femsense.app" type="email">
+            </div>
+            <div class="field">
+              <label>كلمة المرور</label>
+              <input value="12345678" type="password">
+            </div>
+            <button class="btn full" onclick="login()">تسجيل الدخول</button>
+            <div class="login-note">🔒 بيئة تجريبية آمنة متصلة بحساسات NFC الفعلية.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. NFC SYNC SCREEN -->
+      <section id="sync" class="screen">
+        <div class="sync-screen">
+          <div class="eyebrow">STEP 01 · NFC ENERGY HARVESTING</div>
+          <div class="nfc-orbit"><div class="phone">📱</div></div>
+          <h2>مزامنة قراءة الحساسات</h2>
+          <p>قرّبي هاتفك من نقطة NFC في الحمالة لتزويد المتحكم الدقيق بالطاقة وقراءة الحساسين الحراريين (PA0 / PA1).</p>
+          
+          <div class="live-badge" id="syncStatusBadge">⚡ حالة الاتصال: بانتظار مسحة الهاتف</div>
+
+          <div class="steps">
+            <div class="step"><b>01</b><h4>الملامسة</h4><p>تنشيط دارة الـ Harvesting</p></div>
+            <div class="step"><b>02</b><h4>قراءة المستشعرات</h4><p>حساس 1 (PA0) وحساس 2 (PA1)</p></div>
+            <div class="step"><b>03</b><h4>تحليل الانحراف</h4><p>المقارنة الفورية مع خط الأساس</p></div>
+          </div>
+          
+          <button class="btn" id="syncActionBtn" onclick="manualTrigger()">محاكاة مسحة NFC الآن</button>
+          <button class="btn secondary" onclick="show('dashboard')">عرض لوحة المتابعة</button>
+          
+          <div class="disclaimer">تعتمد الدارة على ST25DV Energy Harvesting لتوليد تيار كافٍ لتشغيل الـ MCU وقراءة ممانعة ومجسات NTC دون بطارية داخلية.</div>
+        </div>
+      </section>
+
+      <!-- 3. DASHBOARD SCREEN (Divided into Sections) -->
+      <section id="dashboard" class="screen">
+        
+        <!-- Success Banner (Hidden by default, shown on sync) -->
+        <div id="successBanner" class="success-banner" style="display: none;">
+          <div>
+            <b>🌸 شكراً لالتزامك بالفحص اليومي!</b>
+            <p>تمت مزامنة قراءة الحساسات بنجاح وتسجيلها في خط التتبع الزمني.</p>
+          </div>
+          <button class="btn" style="padding: 6px 12px; font-size:10px;" onclick="document.getElementById('successBanner').style.display='none'">إخفاء</button>
+        </div>
+
+        <div class="hero">
+          <div>
+            <div class="eyebrow">LIVE TELEMETRY · FEMSENSE IOT</div>
+            <h2>صباح الخير، فاطمة 🌷</h2>
+            <p id="lastSyncText">في انتظار إجراء أول مسحة NFC لقراءة البيانات الحية...</p>
+          </div>
+          <div class="sync-pill pending" id="liveSyncPill"><span class="dot"></span><span id="pillText">بانتظار المزامنة</span></div>
+        </div>
+
+        <!-- SECTION A: 30-Day Tracking Timeline -->
+        <div class="dashboard-section">
+          <div class="dashboard-section-title">📅 خط التتبع الزمني (متابعة 30 يوماً للفحص)</div>
+          <p style="font-size:11px; color:var(--muted); margin-bottom:10px;">تابعي التزامك اليومي؛ تظهر علامة (✅) في الأيام التي أتممتِ فيها القراءة بنجاح.</p>
+          <div class="timeline-30-container">
+            <div class="timeline-30-track" id="timeline30Track">
+              <!-- JS will populate 30 days here -->
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION B: Status Alert & Live Telemetry -->
+        <div class="dashboard-section">
+          <div class="dashboard-section-title">⚡ حالة المؤشرات والإنذارات الاستباقية</div>
+          <!-- Dynamic Alert -->
+          <div class="alert warning" id="mainAlert" style="margin-bottom:0;">
+            <div class="alert-main">
+              <div class="alert-icon" id="alertIcon">◐</div>
+              <div>
+                <h3 id="alertTitle">بانتظار قراءة المستشعرات</h3>
+                <p id="alertDesc">مرري هاتفك فوق هوائي الـ NFC لتحديث خريطة درجات الحرارة والممانعة الحيوية.</p>
+              </div>
+            </div>
+            <span class="status-tag" id="alertTag">حالة النظام</span>
+          </div>
+        </div>
+
+        <!-- SECTION C: Key Metrics Cards -->
+        <div class="dashboard-section">
+          <div class="dashboard-section-title">📊 القراءات الحية للمستشعرات</div>
+          <div class="grid grid-4">
+            <div class="card metric">
+              <div class="metric-label">حساس 1 (PA0) - الثدي الأيسر</div>
+              <div class="metric-value"><span id="metricT1">--</span> <small>°C</small></div>
+              <div class="metric-sub" id="subT1">بانتظار القراءة</div>
+            </div>
+            <div class="card metric">
+              <div class="metric-label">حساس 2 (PA1) - الثدي الأيمن</div>
+              <div class="metric-value"><span id="metricT2">--</span> <small>°C</small></div>
+              <div class="metric-sub" id="subT2">المرجع الطبيعي</div>
+            </div>
+            <div class="card metric">
+              <div class="metric-label">الممانعة الحيوية (Bioimpedance)</div>
+              <div class="metric-value"><span id="metricBio">412</span> <small>Ω</small></div>
+              <div class="metric-sub">ضمن النطاق الطبيعي</div>
+            </div>
+            <div class="card metric">
+              <div class="metric-label">التماثل الحراري (Symmetry)</div>
+              <div class="metric-value"><span id="metricSym">94%</span></div>
+              <div class="metric-sub" id="subSym">تحت المراقبة</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION D: Interactive Map & Trend Analysis -->
+        <div class="grid grid-2">
+          <!-- Breast Heatmap -->
+          <div class="card">
+            <div class="card-title"><h3>خريطة التوزيع الحراري الحية</h3><span>توزيع الأرباع الأربعة</span></div>
+            <div class="breast-wrap">
+              <div class="chest">
+                <div class="breast left">
+                  <i class="quadrant q1"></i><i class="quadrant q2"></i>
+                  <i class="quadrant q3"></i><i class="quadrant q4"></i>
+                  <i class="nipple"></i>
+                  <i class="hotspot" id="hotspotElement" title="نقطة تركيز حراري"></i>
+                </div>
+                <div class="breast right">
+                  <i class="quadrant q1"></i><i class="quadrant q2"></i>
+                  <i class="quadrant q3"></i><i class="quadrant q4"></i>
+                  <i class="nipple"></i>
+                </div>
+              </div>
+              <div class="map-legend">
+                <span><i class="legend-dot" id="legendDot"></i><span id="legendZoneText">المستشعر 1 (PA0)</span></span>
+                <span><i class="legend-dot gray"></i>المستشعر 2 (PA1) المرجعي</span>
+                <span>يسار · علوي خارجي</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Trend Bars -->
+          <div class="card">
+            <div class="card-title"><h3>اتجاه الحرارة التاريخي</h3><span>آخر أيام · مقارنة بخط الأساس</span></div>
+            <div class="bars">
+              <div class="bar-col"><i class="bar" id="bar1" style="height:43%"></i></div>
+              <div class="bar-col"><i class="bar" id="bar2" style="height:46%"></i></div>
+              <div class="bar-col"><i class="bar" id="bar3" style="height:45%"></i></div>
+              <div class="bar-col"><i class="bar" id="bar4" style="height:54%"></i></div>
+              <div class="bar-col"><i class="bar" id="bar5" style="height:60%"></i></div>
+              <div class="bar-col"><i class="bar" id="bar6" style="height:65%"></i></div>
+              <div class="bar-col"><i class="bar hot" id="barToday" style="height:40%"></i></div>
+            </div>
+            <div class="days"><span>-6</span><span>-5</span><span>-4</span><span>-3</span><span>-2</span><span>-1</span><span>اليوم</span></div>
+            <div style="margin-top:14px" class="small-row">
+              <span>الانحراف عن الخط المرجعي</span>
+              <strong id="deviationValue">0.00°C</strong>
+            </div>
+            <div class="progress"><i id="progressIndicator" style="width:50%"></i></div>
+            <div style="margin-top:7px" class="small-row"><span>عتبة التنبيه الحراري</span><strong>35.0°C</strong></div>
+          </div>
+        </div>
+
+        <!-- SECTION E: System Summary & Actions -->
+        <div class="card" style="margin-top:14px">
+          <div class="card-title"><h3>مؤشرات الدارة ذاتية الطاقة (Battery-free)</h3><span>تحديث حي كل 400ms</span></div>
+          <div class="sensor-row">
+            <div class="sensor"><div class="sensor-icon">♨</div><h4>NTC Channel 1</h4><p>حساس العقدة (PA0)</p><strong id="summaryT1">--</strong></div>
+            <div class="sensor"><div class="sensor-icon">❄</div><h4>NTC Channel 2</h4><p>حساس المقارنة (PA1)</p><strong id="summaryT2">--</strong></div>
+            <div class="sensor"><div class="sensor-icon">⌁</div><h4>Bioimpedance</h4><p>المقاومة النوعية</p><strong id="summaryBio">412 Ω</strong></div>
+            <div class="sensor"><div class="sensor-icon">📡</div><h4>NFC Harvester</h4><p>حالة طاقة الشريحة</p><strong id="summaryNfc">نشط ومستقر</strong></div>
+          </div>
+        </div>
+
+        <div class="grid grid-2" style="margin-top:14px">
+          <div class="card">
+            <div class="card-title"><h3>سجل المزامنات</h3><span>NFC Logs</span></div>
+            <div class="timeline" id="eventTimeline">
+              <div class="event">
+                <div class="event-date">الآن</div>
+                <div style="display:flex;gap:9px;align-items:center">
+                  <div class="event-icon">⌁</div>
+                  <div><h4 id="timelineTitle">في انتظار المسحة</h4><p id="timelineDesc">قم بتمرير الهاتف لمزامنة البيانات</p></div>
+                </div>
+                <span class="event-tag" id="timelineTag">جاهز</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title"><h3>الإجراءات الموصى بها</h3><span>التوجيه السريري</span></div>
+            <p style="font-size:11px;line-height:1.8;color:var(--muted);margin-bottom:15px">
+              يقوم FemSense برصد التغيرات الفسيولوجية دون انبعاثات ضارة. عند استمرار ارتفاع مؤشر التباين الحراري لعدة أيام متتالية، يوصى بمشاركة التقرير مع طبيبتك.
+            </p>
+            <div class="actions">
+              <button class="btn" onclick="openBooking()">حجز موعد</button>
+              <button class="btn ghost" onclick="exportReport()">استخراج تقرير PDF</button>
+            </div>
+            <div class="disclaimer">هذه القراءات لأغراض الرصد المبكر وتوجيه الفحص الطبي، وليست بديلاً عن التصوير الشعاعي التشخيصي.</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- Modal & Toast -->
+<div id="modal" class="modal-backdrop" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-head"><h3>حجز موعد مع الطبيبة</h3><button class="close" onclick="closeModal()">×</button></div>
+    <div class="booking-grid">
+      <button class="option selected" onclick="selectOption(this)"><b>الخميس · 1 أكتوبر</b><span>10:30 صباحاً</span></button>
+      <button class="option" onclick="selectOption(this)"><b>الخميس · 1 أكتوبر</b><span>1:00 ظهراً</span></button>
+      <button class="option" onclick="selectOption(this)"><b>السبت · 3 أكتوبر</b><span>9:00 صباحاً</span></button>
+      <button class="option" onclick="selectOption(this)"><b>الأحد · 4 أكتوبر</b><span>4:30 مساءً</span></button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn secondary" onclick="closeModal()">إلغاء</button>
+      <button class="btn" onclick="confirmBooking()">تأكيد الموعد</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+let lastKnownT1 = "--";
+let currentTrackedDay = 15; // اليوم الحالي الافتراضي للتجربة
+
+// بناء خط التمني الزمني لـ 30 يوماً
+function renderTimeline30(recordedDays) {
+  const track = document.getElementById('timeline30Track');
+  if(!track) return;
+  track.innerHTML = '';
+  
+  for(let i = 1; i <= 30; i++) {
+    const isRecorded = recordedDays.includes(i);
+    const isToday = (i === currentTrackedDay);
+    
+    const node = document.createElement('div');
+    node.className = `day-node ${isRecorded ? 'completed' : ''} ${isToday && !isRecorded ? 'today' : ''}`;
+    node.innerHTML = `
+      <span>اليوم ${i}</span>
+      <div>${isRecorded ? '✅' : (isToday ? '📌' : '·')}</div>
+    `;
+    track.appendChild(node);
+  }
+}
+
+// تهيئة الخط الزمني عند التحميل
+renderTimeline30([1, 4, 7, 9, 12, 15]);
+
+function show(id, btn){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const el = document.getElementById(id);
+  if(el) el.classList.add('active');
+  document.body.classList.toggle('login-mode', id==='login');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  const nav = document.querySelector('.nav-btn[data-target="'+id+'"]');
+  if(nav) nav.classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function login(){
+  show('dashboard');
+  toast('أهلاً بك يا فاطمة 🌷');
+}
+
+function manualTrigger(){
+  fetch('/update')
+    .then(r => r.json())
+    .then(res => {
+      toast('تمت مسحة NFC بنجاح وتسجيل قراءة اليوم!');
+      // إظهار رسالة الشكر في لوحة المتابعة
+      const banner = document.getElementById('successBanner');
+      if(banner) banner.style.display = 'flex';
+      
+      // تحديث قائمة الأيام المسجلة محلياً وإعادة رسم خط الزمن
+      renderTimeline30(res.recorded_days);
+      
+      setTimeout(()=> show('dashboard'), 400);
+    });
+}
+
+function openBooking(){ document.getElementById('modal').classList.add('show'); }
+function closeModal(){ document.getElementById('modal').classList.remove('show'); }
+function selectOption(el){
+  document.querySelectorAll('.option').forEach(x=>x.classList.remove('selected'));
+  el.classList.add('selected');
+}
+function confirmBooking(){
+  closeModal();
+  toast('تم تأكيد موعد الاستشارة بنجاح');
+}
+function exportReport(){
+  toast('جاري تجهيز تقرير FemSense الطبي...');
+  setTimeout(()=>window.print(),500);
+}
+function toast(message){
+  const t=document.getElementById('toast');
+  t.textContent=message;t.classList.add('show');
+  clearTimeout(window.__toast);
+  window.__toast=setTimeout(()=>t.classList.remove('show'),2400);
+}
+
+// استطلاع دوري لجلب البيانات وتحديث الواجهة
+setInterval(() => {
+  fetch('/get_data')
+    .then(res => res.json())
+    .then(data => {
+      if(data.t1 === "--") return;
+
+      const t1Val = parseFloat(data.t1);
+      const t2Val = parseFloat(data.t2);
+      
+      document.getElementById('metricT1').innerText = data.t1;
+      document.getElementById('metricT2').innerText = data.t2;
+      document.getElementById('summaryT1').innerText = data.t1 + " °C";
+      document.getElementById('summaryT2').innerText = data.t2 + " °C";
+      document.getElementById('lastSyncText').innerText = "آخر مزامنة: " + data.status;
+      document.getElementById('syncStatusBadge').innerText = "⚡ " + data.status;
+
+      const pill = document.getElementById('liveSyncPill');
+      pill.classList.remove('pending');
+      document.getElementById('pillText').innerText = "تمت المزامنة بنجاح";
+
+      const dev = (t1Val - t2Val).toFixed(2);
+      document.getElementById('deviationValue').innerText = (dev > 0 ? "+" : "") + dev + "°C";
+
+      const hotspot = document.getElementById('hotspotElement');
+      const mainAlert = document.getElementById('mainAlert');
+      const subT1 = document.getElementById('subT1');
+      const barToday = document.getElementById('barToday');
+      const progress = document.getElementById('progressIndicator');
+
+      if(t1Val > 35.0){
+        hotspot.style.display = 'block';
+        mainAlert.className = 'alert danger';
+        document.getElementById('alertIcon').innerText = '🔥';
+        document.getElementById('alertTitle').innerText = 'رصد ارتفاع حراري مستمر (حرارة الجسم)';
+        document.getElementById('alertDesc').innerText = 'الحساس الأول (PA0) يسجل ' + data.t1 + '°C، بفارق ' + dev + '°C عن الحساس المرجعي (PA1).';
+        document.getElementById('alertTag').innerText = 'انحراف ملحوظ';
+        
+        subT1.className = 'metric-sub red';
+        subT1.innerText = '+' + dev + '° عن الحساس المرجعي';
+
+        barToday.style.height = '88%';
+        progress.style.width = '88%';
+        document.getElementById('metricSym').innerText = '76%';
+        document.getElementById('subSym').className = 'metric-sub red';
+        document.getElementById('subSym').innerText = 'تباين بين الجانبين';
+      } else {
+        hotspot.style.display = 'none';
+        mainAlert.className = 'alert good';
+        document.getElementById('alertIcon').innerText = '✓';
+        document.getElementById('alertTitle').innerText = 'القراءات ضمن النطاق الطبيعي';
+        document.getElementById('alertDesc').innerText = 'حساسات النمط الحراري متطابقة ومستقرة حول حرارة الغرفة (' + data.t1 + '°C).';
+        document.getElementById('alertTag').innerText = 'طبيعي ومستقر';
+
+        subT1.className = 'metric-sub';
+        subT1.innerText = 'متطابق مع البيئة المحيطة';
+
+        barToday.style.height = '35%';
+        progress.style.width = '35%';
+        document.getElementById('metricSym').innerText = '96%';
+        document.getElementById('subSym').className = 'metric-sub';
+        document.getElementById('subSym').innerText = 'تماثل ممتاز';
+      }
+
+      if(data.recorded_days){
+        renderTimeline30(data.recorded_days);
+      }
+
+      if(lastKnownT1 !== data.t1){
+        lastKnownT1 = data.t1;
+        document.getElementById('timelineTitle').innerText = 'مزامنة NFC: T1=' + data.t1 + '°C | T2=' + data.t2 + '°C';
+        document.getElementById('timelineDesc').innerText = data.status;
+        document.getElementById('timelineTag').innerText = t1Val > 35.0 ? 'تنبيه' : 'طبيعي';
+      }
+    });
+}, 400);
+</script>
+</body>
+</html>
+"""
+
+@app.route('/')
+def home():
+    return render_template_string(FEM_SENSE_HTML)
+
+@app.route('/update', methods=['GET'])
+def update():
+    global latest_data, tap_count
+    tap_count += 1
+
+    if tap_count % 2 != 0:
+        val_t1 = "24.2"
+        val_t2 = "24.5"
+        latest_data["status"] = f"مسحة #{tap_count}: قراءة معيارية لدرجة حرارة الغرفة"
+        latest_data["bioimpedance"] = "412"
+    else:
+        val_t1 = "37.1"
+        val_t2 = "24.5"
+        latest_data["status"] = f"مسحة #{tap_count}: رصد نمط حراري دافئ (حرارة الجسم)"
+        latest_data["bioimpedance"] = "385" # انخفاض طفيف للممانعة الحيوية مع الارتفاع الحراري
+
+    latest_data["t1"] = val_t1
+    latest_data["t2"] = val_t2
+    latest_data["synced"] = True
+
+    # إضافة اليوم الحالي (مثلاً اليوم 15) لقائمة الأيام المسجلة إذا لم يكن مضافاً
+    if 15 not in latest_data["recorded_days"]:
+        latest_data["recorded_days"].append(15)
+
+    print(f"\n[FemSense NFC Tap #{tap_count}] -> T1 (PA0)={val_t1}°C | T2 (PA1)={val_t2}°C")
+
+    # إرجاع رد بصيغة JSON لتقوم الصفحة بتحديث خط التتبع الزمني وإظهار رسالة الشكر فوراً
+    return jsonify({
+        "status": "success",
+        "recorded_days": latest_data["recorded_days"]
+    })
+
+@app.route('/get_data')
+def get_data():
+    return jsonify(latest_data)
+
+if __name__ == '__main__':
+    print("\n" + "="*60)
+    print(" 🌸 نظام FemSense المتكامل يعمل الآن!")
+    print(" افتحي المتصفح على اللابتوب: http://localhost:5000")
+    print("="*60 + "\n")
+    app.run(host='0.0.0.0', port=5000, debug=False)

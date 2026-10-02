@@ -1,0 +1,510 @@
+from flask import Flask, jsonify, render_template_string
+
+app = Flask(__name__)
+
+# عداد تتبع المحاولات
+tap_count = 0
+
+# حالة النظام والبيانات المبسطة للمستخدمة
+latest_data = {
+    "status_title": "الحالة مستقرّة ولله الحمد 🌸",
+    "status_desc": "جميع مؤشرات الأنسجة والحرارة الموضعية ضمن النطاق الطبيعي تماماً. لا توجد أي مخاوف تستدعي القلق.",
+    "is_danger": False,
+    "history": [43, 46, 45, 54, 69, 75, 82],
+    "recorded_days": [1, 3, 5, 7, 10, 12, 14] # الأيام التي تم رصد قراءات فيها
+}
+
+FEM_SENSE_HTML = """
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FemSense | افحصي اليوم.. اطمئني غداً</title>
+<style>
+:root{
+  --rose:#d94f7d;
+  --rose-dark:#b93663;
+  --rose-soft:#fff0f5;
+  --rose-softer:#fff8fb;
+  --ink:#172033;
+  --muted:#778196;
+  --line:#e9edf3;
+  --surface:#ffffff;
+  --bg:#f6f7fb;
+  --green:#26966f;
+  --green-soft:#e9f8f1;
+  --amber:#c78325;
+  --amber-soft:#fff5e5;
+  --red:#c84d5f;
+  --red-soft:#fff0f1;
+  --shadow:0 18px 50px rgba(25,32,51,.09);
+  --radius:22px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  min-height:100vh;
+  background:radial-gradient(circle at 10% 0%,#fff 0 22%,transparent 45%),var(--bg);
+  color:var(--ink);
+  font-family:Tahoma,"Segoe UI",Arial,sans-serif;
+  padding:22px;
+}
+button,input{font:inherit}
+button{cursor:pointer}
+.app{
+  width:min(1050px,100%);
+  margin:auto;
+  min-height:calc(100vh - 44px);
+  background:var(--surface);
+  border:1px solid #edf0f5;
+  border-radius:30px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+.topbar{
+  min-height:76px;
+  padding:16px 28px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  border-bottom:1px solid var(--line);
+  background:rgba(255,255,255,.92);
+  backdrop-filter:blur(12px);
+}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{
+  width:42px;height:42px;border-radius:14px;
+  display:grid;place-items:center;
+  background:linear-gradient(145deg,var(--rose),#ef7fa4);
+  color:#fff;font-weight:900;font-size:21px;
+}
+.brand h1{font-size:20px;letter-spacing:.2px}
+.brand p{font-size:11px;color:var(--muted);margin-top:3px}
+.top-actions{display:flex;align-items:center;gap:9px}
+.profile{
+  display:flex;align-items:center;gap:9px;
+  padding:7px 11px;border:1px solid var(--line);border-radius:14px;
+  font-size:12px;color:var(--ink);background:#fff
+}
+.avatar{width:28px;height:28px;border-radius:10px;background:var(--rose-soft);display:grid;place-items:center;color:var(--rose);font-weight:800}
+
+.content{padding:28px;overflow:hidden}
+.screen{display:none}
+.screen.active{display:block;animation:enter .32s ease}
+@keyframes enter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.hero{
+  display:flex;justify-content:space-between;align-items:flex-start;gap:20px;
+  margin-bottom:20px
+}
+.eyebrow{
+  color:var(--rose);font-size:11px;font-weight:900;
+  letter-spacing:.4px;margin-bottom:7px
+}
+.hero h2{font-size:25px;line-height:1.35;margin-bottom:7px}
+.hero p{color:var(--muted);font-size:12px;line-height:1.8}
+
+/* Success Banner */
+.success-banner{
+  background:linear-gradient(135deg,var(--green-soft),#d1fae5);
+  border:1px solid #a7f3d0;
+  color:#065f46;
+  padding:14px 18px;
+  border-radius:16px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:18px;
+  box-shadow:0 4px 15px rgba(38,150,111,0.08);
+}
+.success-banner div b { font-size: 13px; display: block; margin-bottom: 2px; }
+.success-banner div p { font-size: 11px; color: #047857; }
+
+.dashboard-section {
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:20px;
+  padding:20px;
+  margin-bottom:18px;
+  box-shadow:0 4px 20px rgba(25,32,51,.02);
+}
+.dashboard-section-title {
+  font-size:14px;
+  font-weight:800;
+  color:var(--ink);
+  margin-bottom:14px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+/* Monthly Calendar Grid */
+.calendar-header {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--rose-dark);
+  margin-bottom: 12px;
+  text-align: center;
+  background: var(--rose-soft);
+  padding: 8px;
+  border-radius: 12px;
+}
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+.cal-day {
+  aspect-ratio: 1;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid var(--line);
+  background: #f1f3f7; /* الأيام الباقية بدون قراءة (رمادي) */
+  color: var(--muted);
+  gap: 2px;
+}
+.cal-day.recorded {
+  background: var(--rose-dark); /* اللون الوردي الغامق للأيام المسجلة */
+  border-color: var(--rose-dark);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(185,54,99,0.25);
+}
+.cal-day.today {
+  border: 2px dashed var(--rose);
+}
+
+/* Status Alert Styles */
+.alert{
+  padding:16px 20px;border-radius:18px;display:flex;align-items:center;justify-content:space-between;gap:15px;
+  margin-bottom:0;border:1px solid;
+}
+.alert.good{background:var(--green-soft);border-color:#ccecdf; color: #065f46;}
+.alert.danger{background:var(--red-soft);border-color:#f8b4bc; color: #991b1b;}
+.alert-main{display:flex;align-items:center;gap:14px}
+.alert-icon{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:#fff;font-size:20px}
+.alert h3{font-size:14px;margin-bottom:4px; font-weight: 800;}
+.alert p{font-size:11px;line-height:1.6; opacity: 0.9;}
+
+.breast-wrap{
+  min-height:260px;border-radius:16px;background:
+  radial-gradient(circle at 50% 35%,rgba(217,79,125,.07),transparent 48%),#fbfcfe;
+  border:1px solid #eef1f5;position:relative;display:grid;place-items:center;overflow:hidden;margin-top: 10px;
+}
+.chest{
+  width:290px;height:180px;position:relative;display:flex;gap:7px;align-items:center;justify-content:center
+}
+.breast{
+  width:122px;height:142px;position:relative;
+  background:radial-gradient(circle at 45% 42%,#ffd5e0 0 13%,#f7b3c5 34%,#f39ab5 64%,#ee8aa9 100%);
+  border-radius:54% 46% 51% 49% / 48% 48% 52% 52%;
+  box-shadow:inset 0 0 24px rgba(255,255,255,.35),0 8px 20px rgba(217,79,125,.12)
+}
+.breast.left{transform:rotate(8deg)}
+.breast.right{transform:rotate(-8deg)}
+.nipple{position:absolute;width:18px;height:18px;border-radius:50%;background:#d87491;left:50%;top:52%;transform:translate(-50%,-50%);box-shadow:0 0 0 8px rgba(255,255,255,.13)}
+.quadrant{
+  position:absolute;width:34px;height:34px;border-radius:50%;
+  background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.45);
+}
+.q1{top:18px;right:15px}.q2{top:18px;left:15px}.q3{bottom:18px;right:15px}.q4{bottom:18px;left:15px}
+.hotspot{
+  position:absolute;width:29px;height:29px;border-radius:50%;
+  background:rgba(194,66,93,.78);right:20px;top:29px;
+  box-shadow:0 0 0 8px rgba(194,66,93,.10),0 0 18px rgba(194,66,93,.35);
+  animation:pulse 2.2s infinite;display:none;
+}
+@keyframes pulse{50%{transform:scale(1.08);opacity:.78}}
+.map-legend{
+  position:absolute;bottom:8px;right:12px;left:12px;display:flex;justify-content:space-between;
+  color:var(--muted);font-size:9px
+}
+.legend-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:4px;background:#ef8ba7}
+
+.btn{
+  border:0;border-radius:13px;padding:12px 18px;background:linear-gradient(135deg,var(--rose),#e66b96);
+  color:#fff;font-weight:800;font-size:12px;box-shadow:0 8px 20px rgba(217,79,125,.18);
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn:hover{background:linear-gradient(135deg,var(--rose-dark),var(--rose))}
+.btn.secondary{background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:none}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top: 10px;}
+
+.login{max-width:480px;margin:40px auto 0}
+.login h2.slogan{font-size:27px;color:#d92f70;line-height:1.35;margin:4px 0 8px;font-weight:900;text-align:center;}
+.login .tagline{color:#d92f70;font-size:13px;text-align:center;margin-bottom:20px;font-weight:600;}
+.login .form{background:#fff;border:1px solid var(--line);border-radius:22px;padding:20px;box-shadow:0 12px 35px rgba(25,32,51,.055)}
+.field{margin-bottom:14px}.field label{display:block;font-size:11px;font-weight:800;margin-bottom:7px}
+.field input{width:100%;border:1px solid var(--line);border-radius:13px;padding:13px;background:#fff;outline:none;font-size:12px}
+
+body.login-mode .topbar{display:none}
+body.login-mode .content{
+  min-height:calc(100vh - 44px);display:grid;place-items:center;padding:35px 20px;
+  background:radial-gradient(circle at 50% 10%,rgba(217,79,125,.07),transparent 34%),linear-gradient(180deg,#fff,#fff9fb);
+}
+body.login-mode .login{margin:0 auto;width:min(500px,100%)}
+
+.sync-screen{max-width:550px;margin:30px auto;text-align:center}
+.nfc-orbit{
+  width:130px;height:130px;margin:0 auto 20px;border-radius:50%;display:grid;place-items:center;
+  background:radial-gradient(circle,#fff 0 36%,var(--rose-soft) 37% 60%,#fce1eb 61% 100%);
+}
+.phone{font-size:38px}
+
+.modal-backdrop{
+  position:fixed;inset:0;background:rgba(16,22,36,.45);backdrop-filter:blur(5px);
+  display:none;align-items:center;justify-content:center;padding:20px;z-index:20
+}
+.modal-backdrop.show{display:flex}
+.modal{width:min(500px,100%);background:#fff;border-radius:24px;padding:22px;box-shadow:0 25px 70px rgba(0,0,0,.22)}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.modal-head h3{font-size:16px}
+.close{border:0;background:#f5f6f8;width:32px;height:32px;border-radius:10px;cursor:pointer;}
+
+.toast{
+  position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);
+  opacity:0;background:#172033;color:#fff;padding:11px 16px;border-radius:12px;font-size:11px;
+  transition:.25s;z-index:30;pointer-events:none
+}
+.toast.show{opacity:1;transform:translateX(-50%)}
+</style>
+</head>
+
+<body class="login-mode">
+<div class="app" id="appShell">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">F</div>
+      <div><h1>FemSense</h1><p>مراقبة مستمرة لصحة الثدي</p></div>
+    </div>
+    <div class="top-actions">
+      <div class="profile"><span class="avatar">ف</span><span>فاطمة</span>⌄</div>
+    </div>
+  </header>
+
+  <div class="content">
+    <!-- 1. LOGIN SCREEN -->
+    <section id="login" class="screen active">
+      <div class="login">
+        <div>
+          <h2 class="slogan">افحصي اليوم.. اطمئني غداً</h2>
+          <p class="tagline">بوابة المتابعة الصحية الذكية للمرأة</p>
+        </div>
+        <div class="form">
+          <div class="field">
+            <label>البريد الإلكتروني</label>
+            <input value="fatima@femsense.app" type="email">
+          </div>
+          <div class="field">
+            <label>كلمة المرور</label>
+            <input value="12345678" type="password">
+          </div>
+          <button class="btn" style="width:100%;" onclick="login()">تسجيل الدخول</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. NFC SYNC SIMULATOR SCREEN -->
+    <section id="sync" class="screen">
+      <div class="sync-screen">
+        <div class="eyebrow">مزامنة البيانات اليومية</div>
+        <div class="nfc-orbit"><div class="phone">📱</div></div>
+        <h2>تم رصد القطعة الذكية</h2>
+        <p style="font-size:12px; color:var(--muted); margin: 10px 0 20px;">قم بتمرير الهاتف لجلب القراءات وتحديث تقويم المتابعة الشهرية الخاص بك بكل سهولة.</p>
+        
+        <button class="btn" onclick="performSync()">تأكيد واستلام القراءة اليومية</button>
+      </div>
+    </section>
+
+    <!-- 3. SIMPLIFIED DASHBOARD SCREEN -->
+    <section id="dashboard" class="screen">
+      
+      <!-- Success Banner -->
+      <div id="successBanner" class="success-banner" style="display: none;">
+        <div>
+          <b>🌸 شكراً لالتزامك بالفحص اليومي!</b>
+          <p>تمت مزامنة قراءة اليوم بنجاح وتحديث تقويم الشهر.</p>
+        </div>
+        <button class="btn secondary" style="padding: 4px 10px; font-size:10px;" onclick="document.getElementById('successBanner').style.display='none'">إخفاء</button>
+      </div>
+
+      <div class="hero">
+        <div>
+          <div class="eyebrow">لوحة المتابعة الوقائية</div>
+          <h2>صباح الخير، فاطمة 🌷</h2>
+          <p>تابعي تقويمك الشهري وحالتك الصحية الموثوقة بكل أريحية.</p>
+        </div>
+        <button class="btn secondary" onclick="show('sync')">⌁ محاكاة مزامنة جديدة</button>
+      </div>
+
+      <!-- SECTION A: Monthly Calendar Tracking -->
+      <div class="dashboard-section">
+        <div class="dashboard-section-title">📅 تقويم المتابعة الشهري</div>
+        <div class="calendar-header" id="calendarMonthName">أكتوبر 2026</div>
+        <div class="calendar-grid" id="monthlyCalendarGrid">
+          <!-- JS will fill days 1 to 30 -->
+        </div>
+        <div style="display:flex; gap:15px; margin-top:12px; font-size:10px; color:var(--muted); align-items:center;">
+          <span><i style="display:inline-block; width:10px; height:10px; background:#b93663; border-radius:3px; margin-left:4px;"></i> أيام تم الفحص فيها</span>
+          <span><i style="display:inline-block; width:10px; height:10px; background:#f1f3f7; border-radius:3px; margin-left:4px;"></i> أيام لم يتم الرصد بعد</span>
+        </div>
+      </div>
+
+      <!-- SECTION B: Status & Reassurance Message -->
+      <div class="dashboard-section">
+        <div class="dashboard-section-title">🩺 وضعك الصحي الحالي</div>
+        <div class="alert good" id="mainStatusAlert">
+          <div class="alert-main">
+            <div class="alert-icon" id="statusAlertIcon">✓</div>
+            <div>
+              <h3 id="statusAlertTitle">الحالة مستقرّة ولله الحمد</h3>
+              <p id="statusAlertDesc">جميع المؤشرات ضمن النطاق الطبيعي تماماً. لا توجد أي مخاوف تستدعي القلق، استمري في روتينك الصحي بكل اطمئنان.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION C: Thermal Heatmap Map Only (No technical data) -->
+      <div class="dashboard-section">
+        <div class="dashboard-section-title">🗺️ الخريطة الحرارية الموضعية للتوزيع</div>
+        <p style="font-size:11px; color:var(--muted); margin-bottom:5px;">توزيع المستشعرات يوضح استقرار درجات الحرارة عبر أرباع الثدي دون أي تباين غير معتاد.</p>
+        <div class="breast-wrap">
+          <div class="chest">
+            <div class="breast left">
+              <i class="quadrant q1"></i><i class="quadrant q2"></i>
+              <i class="quadrant q3"></i><i class="quadrant q4"></i>
+              <i class="nipple"></i>
+              <i class="hotspot" id="hotspotElement"></i>
+            </div>
+            <div class="breast right">
+              <i class="quadrant q1"></i><i class="quadrant q2"></i>
+              <i class="quadrant q3"></i><i class="quadrant q4"></i>
+              <i class="nipple"></i>
+            </div>
+          </div>
+          <div class="map-legend">
+            <span><i class="legend-dot"></i> استقرار ممتاز</span>
+            <span>الأنسجة متماثلة وسليمة</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION D: Recommended Actions & Doctor Report -->
+      <div class="dashboard-section">
+        <div class="dashboard-section-title">📋 الإجراءات المقترحة والتقرير الطبي</div>
+        <p style="font-size:11px; line-height:1.8; color:var(--muted); margin-bottom:12px;">
+          بامكانك مراجعة تقريرك الدوري أو مشاركته مباشرة مع طبيبتك المختصة عند موعدك القادم لضمان أعلى مستويات الرعاية الوقائية.
+        </p>
+        <div class="actions">
+          <button class="btn" onclick="exportReport()">📄 رفع وإرسال التقرير للطبيبة</button>
+          <button class="btn secondary" onclick="toast('تم جدولتك للمتابعة الشهرية القادمة')">حجز استشارة وقائية</button>
+        </div>
+      </div>
+
+    </section>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+let appData = {
+  recorded_days: [1, 3, 5, 7, 10, 12, 14, 18, 20], // أمثلة لأيام تم أخذ القراءات فيها
+  current_day: 22, // اليوم الحالي المفترض
+  is_danger: false
+};
+
+function renderCalendar() {
+  const grid = document.getElementById('monthlyCalendarGrid');
+  if(!grid) return;
+  grid.innerHTML = '';
+  
+  // رسم 30 يوم من الشهر
+  for(let i = 1; i <= 30; i++) {
+    const isRecorded = appData.recorded_days.includes(i);
+    const isToday = (i === appData.current_day);
+    
+    const dayCell = document.createElement('div');
+    dayCell.className = `cal-day ${isRecorded ? 'recorded' : ''} ${isToday && !isRecorded ? 'today' : ''}`;
+    dayCell.innerHTML = `
+      <span>${i}</span>
+      <div>${isRecorded ? '✅' : ''}</div>
+    `;
+    grid.appendChild(dayCell);
+  }
+}
+
+// بناء التقويم عند التحميل
+renderCalendar();
+
+function login(){
+  document.body.classList.remove('login-mode');
+  show('dashboard');
+  toast('أهلاً بك يا فاطمة 🌷');
+}
+
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const el = document.getElementById(id);
+  if(el) el.classList.add('active');
+  document.body.classList.toggle('login-mode', id==='login');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function performSync(){
+  fetch('/sync_action')
+    .then(r => r.json())
+    .then(res => {
+      appData.recorded_days = res.recorded_days;
+      renderCalendar();
+      
+      // إظهار شاشة لوحة المتابعة مع رسالة النجاح
+      show('dashboard');
+      document.getElementById('successBanner').style.display = 'flex';
+      toast('تمت المزامنة بنجاح وتحديث التقويم الشهري');
+    });
+}
+
+function exportReport(){
+  toast('جاري تجهيز وإرسال التقرير الطبي المعتمد للطبيبة...');
+  setTimeout(()=>window.print(), 800);
+}
+
+function toast(message){
+  const t=document.getElementById('toast');
+  t.textContent=message;t.classList.add('show');
+  clearTimeout(window.__toast);
+  window.__toast=setTimeout(()=>t.classList.remove('show'),2500);
+}
+</script>
+</body>
+</html>
+"""
+
+@app.route('/')
+def home():
+    return render_template_string(FEM_SENSE_HTML)
+
+@app.route('/sync_action')
+def sync_action():
+    global latest_data
+    # إضافة يوم جديد عند حدوث المزامنة (مثلاً اليوم 22 إذا لم يكن مضافاً)
+    if 22 not in latest_data["recorded_days"]:
+        latest_data["recorded_days"].append(22)
+    
+    return jsonify({
+        "status": "success",
+        "recorded_days": latest_data["recorded_days"]
+    })
+
+if __name__ == '__main__':
+    print("\n" + "="*60)
+    print(" 🌸 تطبيق FemSense المحدث يعمل الآن!")
+    print(" افتحي المتصفح على الرابط: http://localhost:5000")
+    print("="*60 + "\n")
+    app.run(host='0.0.0.0', port=5000, debug=False)
