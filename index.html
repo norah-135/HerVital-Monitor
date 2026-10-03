@@ -6,299 +6,260 @@
 <title>FemSense | رصد المؤشرات الحيوية</title>
 <style>
 :root{
-  --rose:#d94f7d;
-  --rose-dark:#b93663;
+  --rose:#e05284;
+  --rose-dark:#be3364;
+  --rose-deep:#881337;
   --rose-soft:#fff0f5;
-  --rose-softer:#fff8fb;
-  --ink:#172033;
-  --muted:#64748b;
-  --line:#e2e8f0;
+  --rose-surface:#fff8fb;
+  --rose-border:#fed7e2;
+  --ink:#2d1a24;
+  --muted:#7c6571;
+  --line:#f8d7e3;
   --surface:#ffffff;
-  --bg:#f8fafc;
+  --bg:#fdf5f8;
   --green:#10b981;
   --green-soft:#ecfdf5;
   --amber:#f59e0b;
-  --amber-soft:#fffbeb;
-  --red:#ef4444;
-  --red-soft:#fef2f2;
-  --blue:#3b82f6;
-  --shadow:0 12px 35px rgba(25,32,51,.06);
+  --red:#f43f5e;
+  --red-soft:#fff1f2;
+  --shadow:0 14px 38px rgba(224,82,132,.08);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{
   min-height:100vh;
-  background:radial-gradient(circle at 10% 0%,#fff 0 20%,transparent 40%),var(--bg);
+  background:radial-gradient(circle at 10% 0%,#fff 0 25%,transparent 50%),
+             radial-gradient(circle at 90% 100%,#fde2ec 0 30%,transparent 60%),
+             var(--bg);
   color:var(--ink);
   font-family:Tahoma,"Segoe UI",Arial,sans-serif;
-  padding:20px;
+  padding:24px 16px;
 }
 .app{
-  width:min(1140px,100%);
+  width:min(1100px,100%);
   margin:auto;
   background:var(--surface);
-  border:1px solid #edf0f5;
+  border:1px solid var(--rose-border);
   border-radius:24px;
   box-shadow:var(--shadow);
   overflow:hidden;
 }
 .topbar{
-  padding:14px 28px;
+  padding:16px 32px;
   display:flex;
   align-items:center;
   justify-content:space-between;
   border-bottom:1px solid var(--line);
-  background:rgba(255,255,255,.95);
+  background:rgba(255,255,255,.96);
 }
-.brand{display:flex;align-items:center;gap:12px}
-.brand img{height:46px;width:auto;object-fit:contain}
-.brand-text h1{font-size:19px;color:var(--ink)}
-.brand-text p{font-size:11px;color:var(--muted)}
-.sync-badge{
-  display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:99px;
-  background:var(--amber-soft);color:var(--amber);font-size:11px;font-weight:700;
+.brand{display:flex;align-items:center;gap:14px}
+.brand-logo{
+  height:48px;
+  max-width:140px;
+  object-fit:contain;
+  border-radius:8px;
 }
-.sync-badge.active{background:var(--green-soft);color:var(--green)}
-.dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+.brand-text h1{
+  font-size:22px;
+  font-weight:800;
+  color:var(--rose-deep);
+  letter-spacing:-0.3px;
+}
 
-.content{padding:26px}
+.content{padding:28px}
 
 /* Mini Compact Calendar Timeline */
 .timeline-card{
-  background:#fff;border:1px solid var(--line);border-radius:16px;
-  padding:14px 18px;margin-bottom:14px;
+  background:var(--rose-surface);
+  border:1px solid var(--rose-border);
+  border-radius:18px;
+  padding:18px 22px;
+  margin-bottom:24px;
 }
 .timeline-head{
-  display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:12px;font-weight:700;color:var(--ink)
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:14px;
+  font-size:13px;
+  font-weight:700;
+  color:var(--rose-deep);
 }
 .mini-track{
-  display:grid;grid-template-columns:repeat(15, 1fr);gap:6px;overflow-x:auto;padding-bottom:4px;
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(32px, 1fr));
+  gap:6px;
+  overflow-x:auto;
+  padding-bottom:4px;
 }
 .mini-day{
-  height:38px;border:1px solid var(--line);border-radius:8px;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  font-size:9px;color:var(--muted);background:#fbfcfe;
+  height:42px;
+  border:1px solid var(--rose-border);
+  border-radius:10px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  font-size:10px;
+  color:var(--muted);
+  background:#fff;
+  transition:all .2s ease;
 }
-.mini-day.done{background:var(--green-soft);border-color:#a7f3d0;color:var(--green);font-weight:700}
-.mini-day.current{border-color:var(--rose);background:var(--rose-soft);color:var(--rose);font-weight:800}
-
-/* Result / Reassurance Message Banner */
-.status-message-box{
-  background:var(--green-soft);border:1px solid #a7f3d0;border-radius:16px;
-  padding:16px 20px;margin-bottom:18px;display:flex;align-items:center;gap:14px;
-  transition:all .3s ease;
+.mini-day.done{
+  background:var(--rose-soft);
+  border-color:#f9a8d4;
+  color:var(--rose-dark);
+  font-weight:700;
 }
-.status-message-box.alert-mode{
-  background:var(--red-soft);border-color:#fca5v5;color:#991b1b;
+.mini-day.current{
+  border-color:var(--rose);
+  background:var(--rose);
+  color:#fff;
+  font-weight:800;
+  box-shadow:0 3px 10px rgba(224,82,132,.3);
 }
-.status-msg-icon{
-  width:40px;height:40px;border-radius:12px;background:#fff;
-  display:grid;place-items:center;font-size:18px;flex-shrink:0;
-}
-.status-msg-text h4{font-size:13px;color:var(--ink);margin-bottom:3px;font-weight:800}
-.status-msg-text p{font-size:11px;color:var(--muted);line-height:1.5}
-
-/* Cards Grid */
-.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
-.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:18px}
-.card{
-  background:#fff;border:1px solid var(--line);border-radius:16px;
-  padding:16px;box-shadow:0 4px 16px rgba(0,0,0,.02);position:relative;
-}
-.card h3{font-size:13px;color:var(--ink);margin-bottom:12px;display:flex;align-items:center;gap:6px}
-.metric-val{font-size:26px;font-weight:800;color:var(--ink);line-height:1.2}
-.metric-val small{font-size:12px;font-weight:400;color:var(--muted)}
-.metric-note{font-size:10px;color:var(--muted);margin-top:6px}
-.metric-note.alert{color:var(--red);font-weight:700}
-
-/* Interactive Heatmap Matrix */
-.heatmap-container{
-  display:flex;flex-direction:column;gap:12px;
-}
-.heatmap-grid{
-  display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:5px;
-}
-.heat-cell{
-  background:#f8fafc;border:1px solid var(--line);border-radius:12px;
-  padding:16px;text-align:center;transition:all .3s ease;
-}
-.heat-cell.active-heat{
-  background:#fee2e2;border-color:#fca5a5;
-  box-shadow:0 0 14px rgba(239,68,68,0.25);
-  animation:heatPulse 2s infinite ease-in-out;
-}
-@keyframes heatPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.02)}}
-.heat-cell-title{font-size:11px;color:var(--muted);margin-bottom:6px}
-.heat-cell-temp{font-size:22px;font-weight:800;color:var(--ink)}
-
-/* Bioimpedance Box */
-.bio-box{display:flex;flex-direction:column;gap:10px}
-.bio-gauge{height:10px;background:#f1f5f9;border-radius:99px;overflow:hidden;position:relative}
-.bio-fill{height:100%;width:70%;background:linear-gradient(90deg,var(--blue),var(--green));border-radius:99px;transition:width .4s ease}
-.bio-labels{display:flex;justify-content:space-between;font-size:9px;color:var(--muted)}
 
 /* Clinical Recommendations */
 .recommendations-box{
-  background:linear-gradient(145deg,#fff,#fcfdfe);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:18px;
+  background:linear-gradient(145deg, #fff, #fff9fb);
+  border:1px solid var(--rose-border);
+  border-radius:18px;
+  padding:20px;
+  margin-bottom:24px;
 }
-.rec-title{font-size:13px;font-weight:800;margin-bottom:12px;display:flex;align-items:center;gap:7px;color:var(--ink)}
-.rec-list{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.rec-title{
+  font-size:14px;
+  font-weight:800;
+  margin-bottom:14px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  color:var(--rose-deep);
+}
+.rec-list{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 .rec-item{
-  background:#f8fafc;border:1px solid #edf0f5;border-radius:12px;padding:12px;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:14px;
+  transition:box-shadow .2s;
 }
-.rec-item b{font-size:11px;display:block;margin-bottom:4px;color:var(--ink)}
-.rec-item p{font-size:10px;color:var(--muted);line-height:1.6}
+.rec-item:hover{
+  box-shadow:0 6px 18px rgba(224,82,132,.08);
+}
+.rec-item b{
+  font-size:12px;
+  display:block;
+  margin-bottom:6px;
+  color:var(--rose-dark);
+}
+.rec-item p{
+  font-size:11px;
+  color:var(--muted);
+  line-height:1.6;
+}
 
 /* Clinical Report Preview */
 .report-paper{
-  background:#fff;border:2px dashed #cbd5e1;border-radius:16px;padding:24px;margin-top:14px;
+  background:#fff;
+  border:1.5px dashed #f4b6cb;
+  border-radius:18px;
+  padding:26px;
 }
 .report-head{
-  display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:14px;
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  border-bottom:1px solid var(--line);
+  padding-bottom:16px;
+  margin-bottom:16px;
 }
-.report-brand{display:flex;align-items:center;gap:10px}
-.report-brand img{height:38px}
-.report-meta{font-size:10px;color:var(--muted);text-align:left;line-height:1.7}
-.report-table{width:100%;border-collapse:collapse;margin:12px 0;font-size:11px}
-.report-table th,.report-table td{border:1px solid var(--line);padding:8px 10px;text-align:right}
-.report-table th{background:#f8fafc;color:var(--ink);font-weight:700}
+.report-brand{display:flex;align-items:center;gap:12px}
+.report-meta{font-size:11px;color:var(--muted);text-align:left;line-height:1.8}
+.report-table{width:100%;border-collapse:collapse;margin:14px 0;font-size:11px}
+.report-table th,.report-table td{border:1px solid var(--line);padding:10px 12px;text-align:right}
+.report-table th{background:var(--rose-soft);color:var(--rose-deep);font-weight:700}
 .report-summary{
-  background:var(--rose-softer);border:1px solid #f9d8e3;border-radius:10px;padding:12px;font-size:11px;color:#831843;line-height:1.7;margin-top:12px;
+  background:var(--rose-surface);
+  border:1px solid var(--rose-border);
+  border-radius:12px;
+  padding:14px;
+  font-size:11px;
+  color:var(--rose-deep);
+  line-height:1.75;
+  margin-top:14px;
 }
 
 .btn{
-  border:0;border-radius:10px;padding:10px 18px;background:var(--rose);color:#fff;font-weight:700;font-size:11px;cursor:pointer;
-  transition:background .2s;
+  border:0;
+  border-radius:12px;
+  padding:11px 22px;
+  background:linear-gradient(135deg, var(--rose), var(--rose-dark));
+  color:#fff;
+  font-weight:700;
+  font-size:12px;
+  cursor:pointer;
+  transition:all .2s ease;
+  box-shadow:0 4px 12px rgba(224,82,132,.25);
 }
-.btn:hover{background:var(--rose-dark)}
-.btn.outline{background:#fff;border:1px solid var(--line);color:var(--ink)}
+.btn:hover{
+  transform:translateY(-1px);
+  box-shadow:0 6px 16px rgba(224,82,132,.35);
+}
+.btn.outline{
+  background:#fff;
+  border:1px solid var(--rose-border);
+  color:var(--rose-dark);
+  box-shadow:none;
+}
+.btn.outline:hover{
+  background:var(--rose-soft);
+}
 
 @media(max-width:800px){
-  .grid-4{grid-template-columns:repeat(2,1fr)}
-  .grid-2,.rec-list{grid-template-columns:1fr}
+  .rec-list{grid-template-columns:1fr}
+  .report-head{flex-direction:column;gap:12px}
+  .report-meta{text-align:right}
 }
 </style>
 </head>
 <body>
 
 <div class="app">
-  <!-- Topbar (تم إزالة شاشة الباك إند بناءً على الطلب) -->
+  <!-- Topbar -->
   <header class="topbar">
     <div class="brand">
-      <img src="/Logo.png" alt="FemSense Logo">
+      <img src="Logo.png" onerror="this.onerror=null; this.src='Logo.svg'; if(!this.src) this.src='Logo.jpg';" alt="FemSense Logo" class="brand-logo">
       <div class="brand-text">
-        <h1>FemSense Medical Core</h1>
-        <p>مراقبة حرارية وكهربائية حيوية مستمرة (Battery-Free NFC)</p>
+        <h1>FemSense</h1>
       </div>
-    </div>
-    <div style="display:flex; align-items:center; gap:10px;">
-      <div class="sync-badge" id="syncPill"><span class="dot"></span><span id="syncText">في انتظار مسحة NFC</span></div>
     </div>
   </header>
 
   <div class="content">
 
-    <!-- Mini Tracking Calendar (Compact) -->
+    <!-- Timeline Tracking Calendar (30 Days) -->
     <div class="timeline-card">
       <div class="timeline-head">
-        <span>📅 التتبع الزمني للفحص المستمر (النصف الأول من الدورة / 15 يوماً)</span>
-        <button class="btn" style="padding:4px 10px; font-size:10px;" onclick="triggerSync()">محاكاة مسحة NFC</button>
+        <span>خط التتبع الزمني (متابعة 30 يوماً للفحص)</span>
       </div>
       <div class="mini-track" id="calendarTrack"></div>
     </div>
 
-    <!-- Status & Reassurance Message Box (مضاف حديثاً تحت التتبع الزمني) -->
-    <div class="status-message-box" id="statusMessageBox">
-      <div class="status-msg-icon" id="statusMsgIcon">🌸</div>
-      <div class="status-msg-text">
-        <h4 id="statusMsgTitle">الحالة مستقرة تماماً ولله الحمد</h4>
-        <p id="statusMsgDesc">نتائج القياسات الحالية تقع ضمن خط الأساس الطبيعي. استمري في الاطمئنان، ولا توجد مؤشرات تدعو للقلق.</p>
-      </div>
-    </div>
-
-    <!-- 4 Main Telemetry Cards -->
-    <div class="grid-4">
-      <div class="card">
-        <h3>♨️ حساس 1 (PA0) - الموضعي</h3>
-        <div class="metric-val"><span id="metricT1">--</span> <small>°C</small></div>
-        <div class="metric-note" id="noteT1">بانتظار الإشارة اللاسلكية</div>
-      </div>
-      <div class="card">
-        <h3>❄️ حساس 2 (PA1) - المرجعي</h3>
-        <div class="metric-val"><span id="metricT2">--</span> <small>°C</small></div>
-        <div class="metric-note">المرجع الحراري المقابل</div>
-      </div>
-      <div class="card">
-        <h3>⚡ الممانعة الحيوية (Impedance)</h3>
-        <div class="metric-val"><span id="metricBio">412</span> <small>Ω</small></div>
-        <div class="metric-note" id="noteBio">المقاومة الخلوية الطبيعية</div>
-      </div>
-      <div class="card">
-        <h3>⚖️ معامل التماثل (Symmetry)</h3>
-        <div class="metric-val"><span id="metricSym">98%</span></div>
-        <div class="metric-note" id="noteSym">توازن ثنائي مستقر</div>
-      </div>
-    </div>
-
-    <!-- Heatmap & Bioimpedance Grid -->
-    <div class="grid-2">
-      <!-- Heatmap Matrix -->
-      <div class="card">
-        <h3>🗺️ الخريطة والمصفوفة الحرارية (Micro-Grid)</h3>
-        <div class="heatmap-container">
-          <div class="heatmap-grid">
-            <div class="heat-cell" id="heatCellTarget">
-              <div class="heat-cell-title">الربع العلوي الخارجي (PA0)</div>
-              <div class="heat-cell-temp"><span id="gridT1">--</span> °C</div>
-            </div>
-            <div class="heat-cell">
-              <div class="heat-cell-title">الربع الداخلي المرجعي (PA1)</div>
-              <div class="heat-cell-temp"><span id="gridT2">--</span> °C</div>
-            </div>
-          </div>
-          <p style="font-size:10px; color:var(--muted); line-height:1.6;">
-            رصد التغير التفاضلي (&Delta;T) بين النقطة التشريحية المستهدفة والنسيج المحيط باستخدام مجسات NTC المعايرة.
-          </p>
-        </div>
-      </div>
-
-      <!-- Electrical Bioimpedance Analysis -->
-      <div class="card">
-        <h3>🧬 تحليل المقاومة الكهربائية الحيوية (Bioimpedance)</h3>
-        <div class="bio-box">
-          <div style="display:flex; justify-content:space-between; align-items:baseline; margin-top:5px;">
-            <span style="font-size:11px; color:var(--muted);">قيمة الممانعة الحالية:</span>
-            <b style="font-size:16px; color:var(--ink);"><span id="bioValDetailed">412</span> Ohms</b>
-          </div>
-          <div class="bio-gauge">
-            <div class="bio-fill" id="bioGaugeFill"></div>
-          </div>
-          <div class="bio-labels">
-            <span>انخفاض شديد (&lt;320Ω)</span>
-            <span>النطاق الفسيولوجي الطبيعي (380-450Ω)</span>
-            <span>ارتفاع الممانعة (&gt;480Ω)</span>
-          </div>
-          <p style="font-size:10px; color:var(--muted); line-height:1.6; margin-top:8px;">
-            تعكس المقاومة الكهربائية محتوى السوائل والتروية الدموية الدقيقة في النسيج الخلوي.
-          </p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Enhanced Recommendations (محدث للتأكيد على أخذ القراءات في الأيام المحددة لتتبع التغيرات) -->
+    <!-- Recommendations -->
     <div class="recommendations-box">
       <div class="rec-title">💡 التوجيهات والقرارات السريرية الذكية (Clinical Decision Support)</div>
       <div class="rec-list">
         <div class="rec-item">
-          <b>🎯 أهمية الانتظام في الأيام المطلوبة</b>
-          <p>يُعد الالتزام بأخذ القراءات في الأيام المحددة أمراً أساسياً؛ لكي ينجح النموذج في بناء وتحديث خط الأساس الفردي وتتبع أي تغيرات بدقة مع مرور الوقت[span_3](start_span)[span_3](end_span).</p>
+          <b>🎯 توقيت الفحص اليومي</b>
+          <p>يُفضل تثبيت موعد القياس صباحاً بعد الاستيقاظ مباشرة لتفادي التأثيرات الناتجة عن المجهود البدني.</p>
         </div>
         <div class="rec-item" id="recAlertCard">
-          <b id="recAlertTitle">📊 التوجيه الميداني للنتيجة</b>
-          <p id="recAlertText">المؤشرات الفسيولوجية مستقرة تماماً، ويُنصح بالاستمرار في تسجيل القراءات اليومية بحسب الجدول الزمني.</p>
+          <b id="recAlertTitle">📊 حالة التباين الفسيولوجي</b>
+          <p id="recAlertText">الفروقات الحرارية والمؤشرات الحيوية ضمن الحدود الطبيعية المستقرة ولا تتطلب تدخلاً سريرياً.</p>
         </div>
         <div class="rec-item">
-          <b>🩺 بروتوكول الإحالة الطبية المباشرة</b>
-          <p>عند تسجيل تباين حراري مستمر لأكثر من 3 أيام متتالية، يقوم النظام آلياً بتجهيز التقرير وإدراجه لملف إحالة الطبيبة المختصة[span_4](start_span)[span_4](end_span).</p>
+          <b>🩺 بروتوكول المتابعة الطبية</b>
+          <p>عند تسجيل تباين حراري (&gt; 1.5°C) مستمر لمدة 3 أيام، يُنشئ النظام ملف إحالة إلكتروني مباشرة للطبيبة المختصة.</p>
         </div>
       </div>
     </div>
@@ -307,10 +268,10 @@ body{
     <div class="report-paper">
       <div class="report-head">
         <div class="report-brand">
-          <img src="/Logo.png" alt="FemSense">
+          <img src="Logo.png" onerror="this.onerror=null; this.src='Logo.svg'; if(!this.src) this.src='Logo.jpg';" alt="FemSense" style="height:40px; border-radius:6px;">
           <div>
-            <h4 style="font-size:14px; color:var(--ink);">تقرير فحص الأنماط الحيوية الدوري</h4>
-            <span style="font-size:10px; color:var(--muted);">FemSense Continuous Wearable Diagnostic</span>
+            <h4 style="font-size:15px; color:var(--rose-deep); font-weight:800;">تقرير فحص الأنماط الحيوية الدوري</h4>
+            <span style="font-size:11px; color:var(--muted);">FemSense Continuous Diagnostic</span>
           </div>
         </div>
         <div class="report-meta">
@@ -334,7 +295,7 @@ body{
             <td>الحرارة الموضعية PA0 (يسار)</td>
             <td id="repT1">--</td>
             <td>24.0°C - 36.8°C</td>
-            <td id="repStatus1">بانتظار المسح</td>
+            <td id="repStatus1">بانتظار الفحص</td>
           </tr>
           <tr>
             <td>الحرارة المرجعية PA1 (يمين)</td>
@@ -361,8 +322,8 @@ body{
         <b>ملخص التقرير السريري:</b> البيانات المسجلة عبر دارة الطاقة الذاتية متوافقة مع مؤشرات الاستقرار النسيجي. لا توجد نقاط بؤرية دافئة غير متناظرة.
       </div>
 
-      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
-        <button class="btn outline" onclick="window.print()">🖨️️ طباعة التقرير</button>
+      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:18px;">
+        <button class="btn outline" onclick="window.print()">🖨️ طباعة التقرير</button>
         <button class="btn" onclick="alert('تم حفظ وتصدير ملف التقرير الطبي بنجاح')">📄 تصدير بصيغة PDF</button>
       </div>
     </div>
@@ -371,28 +332,22 @@ body{
 </div>
 
 <script>
+// بناء شريط الأيام (متابعة 30 يوماً للفحص)
 function renderCalendar(recordedDays) {
   const track = document.getElementById('calendarTrack');
   track.innerHTML = '';
-  for(let i = 1; i <= 15; i++){
+  for(let i = 1; i <= 30; i++){
     const isRecorded = recordedDays.includes(i);
     const isToday = (i === 15);
     const day = document.createElement('div');
     day.className = `mini-day ${isRecorded ? 'done' : ''} ${isToday && !isRecorded ? 'current' : ''}`;
-    day.innerHTML = `<span>يوم ${i}</span><span>${isRecorded ? '✓' : (isToday ? '•' : '')}</span>`;
+    day.innerHTML = `<span>${i}</span><span>${isRecorded ? '✓' : (isToday ? '•' : '')}</span>`;
     track.appendChild(day);
   }
 }
 renderCalendar([1, 3, 5, 7, 10, 12, 14]);
 
-function triggerSync(){
-  fetch('/update')
-    .then(r => r.json())
-    .then(data => {
-      renderCalendar(data.recorded_days);
-    });
-}
-
+// استطلاع دوري لجلب القراءات وتحديث التقرير الطبي
 setInterval(() => {
   fetch('/get_data')
     .then(res => res.json())
@@ -401,92 +356,51 @@ setInterval(() => {
 
       const t1 = parseFloat(data.t1);
       const t2 = parseFloat(data.t2);
-      const bio = parseInt(data.bioimpedance);
       const dev = (t1 - t2).toFixed(2);
 
-      document.getElementById('metricT1').innerText = data.t1;
-      document.getElementById('metricT2').innerText = data.t2;
-      document.getElementById('metricBio').innerText = data.bioimpedance;
-      document.getElementById('metricSym').innerText = data.symmetry;
-
-      document.getElementById('gridT1').innerText = data.t1;
-      document.getElementById('gridT2').innerText = data.t2;
-      document.getElementById('bioValDetailed').innerText = data.bioimpedance;
-
-      const bioPercent = Math.min(Math.max(((bio - 300) / 250) * 100, 10), 100);
-      document.getElementById('bioGaugeFill').style.width = bioPercent + '%';
-
-      const pill = document.getElementById('syncPill');
-      pill.className = 'sync-badge active';
-      document.getElementById('syncText').innerText = data.status;
-
+      // تقرير الفحص
       document.getElementById('repT1').innerText = data.t1 + " °C";
       document.getElementById('repT2').innerText = data.t2 + " °C";
       document.getElementById('repBio').innerText = data.bioimpedance + " Ω";
       document.getElementById('repDev').innerText = (dev > 0 ? "+" : "") + dev + " °C";
 
-      const targetCell = document.getElementById('heatCellTarget');
-      const noteT1 = document.getElementById('noteT1');
+      // منطق التباين والتنبيه السريري
       const recTitle = document.getElementById('recAlertTitle');
       const recText = document.getElementById('recAlertText');
       const summaryBox = document.getElementById('reportSummaryBox');
-      
-      const msgBox = document.getElementById('statusMessageBox');
-      const msgIcon = document.getElementById('statusMsgIcon');
-      const msgTitle = document.getElementById('statusMsgTitle');
-      const msgDesc = document.getElementById('statusMsgDesc');
 
       if(t1 > 35.0){
-        targetCell.classList.add('active-heat');
-        noteT1.className = 'metric-note alert';
-        noteT1.innerText = 'ارتفاع ملحوظ فوق خط الأساس';
-        
-        // تحديث رسالة الحالة والاطمئنان (وضع تنبيه / خطر)
-        msgBox.className = 'status-message-box alert-mode';
-        msgIcon.innerText = '⚠️';
-        msgTitle.innerText = 'تنبيه: رصد تباين فسيولوجي غير معتاد';
-        msgDesc.innerText = 'تم رصد ارتفاع حراري بمقدار +' + dev + '°C عن المرجع. يُرجى الالتزام بمتابعة الأيام القادمة بدقة ومشاركة التقرير عند الاستمرار.';
-
-        recTitle.innerText = '⚠ رصد تباين حراري غير متماثل';
-        recTitle.style.color = '#ef4444';
-        recText.innerText = 'تم رصد فارق حراري بمقدار +' + dev + '°C مع انخفاض طفيف في الممانعة الحيوية، يُنصح بتكرار المسح بعد 4 ساعات والانتظام بالموعد المحدد.';
+        recTitle.innerText = '⚠️ رصد تباين حراري غير متماثل';
+        recTitle.style.color = 'var(--red)';
+        recText.innerText = 'تم رصد فارق حراري بمقدار +' + dev + '°C مع انخفاض طفيف في الممانعة الحيوية، يُنصح بإعادة الفحص بعد 4 ساعات.';
 
         document.getElementById('repStatus1').innerText = 'ارتفاع حراري دافئ';
-        document.getElementById('repStatus1').style.color = '#ef4444';
+        document.getElementById('repStatus1').style.color = 'var(--red)';
         document.getElementById('repDevStatus').innerText = 'انحراف ملحوظ (+' + dev + '°C)';
-        document.getElementById('repDevStatus').style.color = '#ef4444';
+        document.getElementById('repDevStatus').style.color = 'var(--red)';
 
-        summaryBox.innerHTML = '<b>تنبيه فسيولوجي:</b> المستشعر PA0 يسجل ارتفاعاً في الطاقة الحرارية مع انخفاض نسبي في الممانعة الكهربائية. نوصي باستشارة الطبيبة إذا استمر المؤشر لمدة 48 ساعة.';
-        summaryBox.style.background = '#fef2f2';
+        summaryBox.innerHTML = '<b>تنبيه فسيولوجي:</b> المستشعر يسجل ارتفاعاً في الطاقة الحرارية مع انخفاض نسبي في الممانعة. نوصي باستشارة الطبيبة إذا استمر المؤشر لمدة 48 ساعة.';
+        summaryBox.style.background = 'var(--red-soft)';
         summaryBox.style.borderColor = '#fca5a5';
-        summaryBox.style.color = '#991b1b';
+        summaryBox.style.color = '#9f1239';
       } else {
-        targetCell.classList.remove('active-heat');
-        noteT1.className = 'metric-note';
-        noteT1.innerText = 'ضمن النطاق المعتدل';
-
-        // تحديث رسالة الحالة والاطمئنان (وضع طبيعي ومستقر)
-        msgBox.className = 'status-message-box';
-        msgIcon.innerText = '🌸';
-        msgTitle.innerText = 'الحالة مستقرة تماماً ولله الحمد';
-        msgDesc.innerText = 'نتائج القياسات الحالية تقع ضمن خط الأساس الطبيعي. استمري في أخذ القراءات في الأيام المحددة لتتبع دقيق ومستمر.';
-
         recTitle.innerText = '✅ توازن حراري وممانعة مستقرة';
-        recTitle.style.color = '#10b981';
-        recText.innerText = 'جميع المؤشرات متطابقة مع النطاق الفسيولوجي المرجعي. واصلي الالتزام بجدول الفحص المستمر للحفاظ على دقة التعرف على الأنماط.';
+        recTitle.style.color = 'var(--green)';
+        recText.innerText = 'جميع المؤشرات المقاسة متطابقة مع النطاق الفسيولوجي المرجعي لدرجة حرارة الغرفة.';
 
         document.getElementById('repStatus1').innerText = 'معياري ومستقر';
-        document.getElementById('repStatus1').style.color = '#10b981';
+        document.getElementById('repStatus1').style.color = 'var(--green)';
         document.getElementById('repDevStatus').innerText = 'طبيعي ومتماثل';
-        document.getElementById('repDevStatus').style.color = '#10b981';
+        document.getElementById('repDevStatus').style.color = 'var(--green)';
 
-        summaryBox.innerHTML = '<b>ملخص التقرير السريري:</b> البيانات المسجلة عبر دارة الطاقة الذاتية متوافقة مع مؤشرات الاستقرار النسيجي. لا توجد نقاط بؤرية دافئة غير متناظرة.';
-        summaryBox.style.background = '#fdf2f8';
-        summaryBox.style.borderColor = '#f9d8e3';
-        summaryBox.style.color = '#831843';
+        summaryBox.innerHTML = '<b>ملخص التقرير السريري:</b> البيانات المسجلة متوافقة مع مؤشرات الاستقرار النسيجي. لا توجد نقاط بؤرية دافئة غير متناظرة.';
+        summaryBox.style.background = 'var(--rose-surface)';
+        summaryBox.style.borderColor = 'var(--rose-border)';
+        summaryBox.style.color = 'var(--rose-deep)';
       }
-    });
-}, 400);
+    })
+    .catch(() => {});
+}, 500);
 </script>
 </body>
 </html>
