@@ -11,6 +11,7 @@ latest_data = {
     "t1": "--",
     "t2": "--",
     "status": "في انتظار أول مسحة NFC...",
+    "clinical_verdict": "المؤشرات مطمئنة",
     "bioimpedance": "500",
     "deviation": 0.0,
     "symmetry": "98%",
@@ -31,7 +32,7 @@ def log_sensor_terminal(t1, t2, bio, dev, status):
         is_warm = float(t1) > 35.0 if t1 != "--" else False
         is_low_bio = int(bio) < 300 if bio != "--" else False
         
-        alert_status = "⚠️️ [انحراف حراري وممانعة منخفضة]" if (is_warm and is_low_bio) else ("⚠️ [انحراف حراري فقط]" if is_warm else "✅ [طبيعي ومستقر]")
+        alert_status = "⚠ [انحراف حراري وممانعة منخفضة]" if (is_warm and is_low_bio) else ("⚠️ [انحراف حراري فقط]" if is_warm else "✅ [طبيعي ومستقر]")
         
         print("\n" + "="*60)
         print(f" 🌸 FemSense Live Telemetry | {now}")
@@ -51,9 +52,6 @@ def log_sensor_terminal(t1, t2, bio, dev, status):
 def home():
     return render_template('index.html')
 
-@app.route('/LB.png')
-def serve_logo():
-    return send_from_directory('.', 'LB.png')
 
 # صفحة الباك إند المخصصة للعرض والتحكيم
 @app.route('/backend')
@@ -88,7 +86,6 @@ def backend_panel():
                 padding: 16px 24px; margin-bottom: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.3);
             }
             .title-wrap { display: flex; align-items: center; gap: 14px; }
-            .title-wrap img { height: 44px; filter: drop-shadow(0 2px 8px rgba(244,63,94,0.3)); }
             .title-wrap h1 { font-size: 18px; color: var(--cyan); letter-spacing: 0.5px; }
             .title-wrap p { font-size: 11px; color: var(--muted); }
             .badge {
@@ -210,7 +207,6 @@ def backend_panel():
         <div class="container">
             <div class="header">
                 <div class="title-wrap">
-                    <img src="/LB.png" alt="FemSense Logo">
                     <div>
                         <h1>FemSense | Telemetry & Clinical Console</h1>
                         <p>نظام التليمتري والتحكيم السريري المباشر عبر مستشعرات الـ NFC</p>
@@ -238,7 +234,7 @@ def backend_panel():
                 </div>
             </div>
 
-            <!-- NEW INTEGRATED VISUALS: الخريطة الحرارية + اتجاه الحرارة -->
+            <!-- Visuals: الخريطة الحرارية + اتجاه الحرارة -->
             <div class="grid-2">
                 <!-- 1. خريطة التوزيع الحراري التشريحية -->
                 <div class="card">
@@ -362,7 +358,7 @@ def backend_panel():
 
         <script>
             setInterval(() => {
-                fetch('/get_data')
+                fetch('/get_data?t=' + Date.now())
                     .then(res => res.json())
                     .then(data => {
                         if(data.t1 === "--") return;
@@ -380,7 +376,6 @@ def backend_panel():
                         document.getElementById('matT1').innerText = data.t1 + " °C";
                         document.getElementById('matT2').innerText = data.t2 + " °C";
 
-                        // حساب نسبة شريط الممانعة: 150Ω تعطي تعبئة منخفضة وحمراء، 500Ω تعطي تعبئة طبيعية
                         const bioPct = Math.min(Math.max(((bio - 100) / 500) * 100, 10), 100);
                         const bioFill = document.getElementById('bioFill');
                         bioFill.style.width = bioPct + '%';
@@ -415,7 +410,6 @@ def backend_panel():
                             todayBar.style.height = '85%';
 
                             if (bio < 300) {
-                                // المرحلة 3: انحراف حراري + ممانعة منخفضة (150Ω)
                                 document.getElementById('t1Sub').innerText = "🚨 تنبيه مركب: بؤرة حرارية + احتقان سوائل وتروية مرتفعة";
                                 document.getElementById('t1Sub').style.color = '#f43f5e';
                                 document.getElementById('regionStatus').innerText = "🚨 تأكيد الانحراف المزدوج (Hyperthermia + Edema)";
@@ -430,7 +424,6 @@ def backend_panel():
                                 liveStatus.style.borderColor = 'rgba(244,63,94,0.5)';
                                 liveStatus.style.background = 'rgba(244,63,94,0.2)';
                             } else {
-                                // المرحلة 2: حرارة فقط وممانعة طبيعية (~500Ω)
                                 document.getElementById('t1Sub').innerText = "⚠️ رصد بؤرة حرارية دافئة مع استقرار الممانعة النسيجية";
                                 document.getElementById('t1Sub').style.color = '#f59e0b';
                                 document.getElementById('regionStatus').innerText = "⚠️ نشاط حراري ملحوظ (الممانعة مستقرة)";
@@ -446,7 +439,6 @@ def backend_panel():
                                 liveStatus.style.background = 'rgba(245,158,11,0.12)';
                             }
                         } else {
-                            // المرحلة 1: حرارة طبيعية وممانعة طبيعية (~500Ω)
                             heatLeft.classList.remove('active-alert');
                             devVal.style.color = '#38bdf8';
                             document.getElementById('t1Sub').innerText = "✅ قراءة طبيعية مستقرة (Ambient Baseline)";
@@ -472,9 +464,8 @@ def backend_panel():
                     });
             }, 500);
 
-            // جلب سجل القراءات وتلوين الحالة ديناميكياً
             function updateLogTable(){
-                fetch('/get_logs')
+                fetch('/get_logs?t=' + Date.now())
                     .then(r => r.json())
                     .then(logs => {
                         const tbody = document.getElementById('logsTableBody');
@@ -519,10 +510,10 @@ def update():
     tap_count += 1
     now_str = datetime.now().strftime("%H:%M:%S")
 
-    # دورة ثلاثية ذكية لعرض مراحل التقييم للحكام:
-    # المسحة 1: حرارة طبيعية (غرفة) + ممانعة طبيعية (~500Ω)
+    # دورة ثلاثية لعرض المراحل:
+    # المسحة 1: حرارة طبيعية (غرفة) + ممانعة طبيعية (~505Ω)
     # المسحة 2: حرارة مرتفعة (جسم) + ممانعة طبيعية مستقرة (~495Ω)
-    # المسحة 3: حرارة مرتفعة (جسم) + انخفاض حاد للممانعة (150Ω) لرصد احتقان السوائل والتروية
+    # المسحة 3: حرارة مرتفعة (جسم) + انخفاض حاد للممانعة (150Ω)
     cycle_step = (tap_count - 1) % 3
 
     if cycle_step == 0:
@@ -549,6 +540,9 @@ def update():
     except (ValueError, TypeError):
         dev = 0.0
 
+    # تقييم المؤشرات: إذا كانت الحرارة أعلى من 35.0 يُنصح بالفحص
+    verdict = "ينصح بإجراء فحص" if float(val_t1) > 35.0 else "المؤشرات مطمئنة"
+
     latest_data.update({
         "t1": val_t1,
         "t2": val_t2,
@@ -556,6 +550,7 @@ def update():
         "deviation": dev,
         "symmetry": sym,
         "status": status_msg,
+        "clinical_verdict": verdict,
         "synced": True,
         "last_sync_time": now_str
     })
@@ -605,11 +600,15 @@ def update():
 
 @app.route('/get_data')
 def get_data():
-    return jsonify(latest_data)
+    res = make_response(jsonify(latest_data))
+    res.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return res
 
 @app.route('/get_logs')
 def get_logs():
-    return jsonify(readings_history)
+    res = make_response(jsonify(readings_history))
+    res.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return res
 
 if __name__ == '__main__':
     TARGET_IP = "172.20.10.8"
